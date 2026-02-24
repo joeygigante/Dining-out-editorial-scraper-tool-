@@ -1,309 +1,552 @@
-# DiningOut Editorial Scraper — Setup Guide
+# DiningOut Editorial Scraper — Beginner Setup Guide
 
-Step-by-step instructions to get the scraper running from scratch.
+This guide assumes you've never done anything like this before. Every step is
+explained in plain language. Budget about 45 minutes to go through the whole
+thing.
+
+**What we're doing:** Setting up a program on your computer that automatically
+checks a bunch of websites (Google News, Reddit, Yelp, etc.) for food/restaurant
+trends in Denver, Houston, Dallas, and Atlanta, then emails your team a nicely
+formatted report every Monday morning.
 
 ---
 
-## Prerequisites
+## Before You Start — What You Need
 
-- Python 3.11+
-- A terminal / command line
-- ~30 minutes for account setup
+- A Mac or Windows computer
+- A web browser (Chrome, Safari, etc.)
+- About 45 minutes
+- You'll create free accounts on 2-3 websites (Reddit, Yelp, and optionally SendGrid)
 
 ---
 
-## Step 1: Install Python Dependencies
+## Part 1: Install Python (the programming language this tool runs on)
 
-```bash
-cd Dining-out-editorial-scraper-tool-
+### On Mac:
+
+1. Open the **Terminal** app
+   - Press **Command + Space** to open Spotlight search
+   - Type **Terminal** and press Enter
+   - A window with a black or white background and a blinking cursor will open
+   - **This is where you'll type commands throughout this guide**
+
+2. Type this and press Enter:
+   ```
+   python3 --version
+   ```
+3. If you see something like `Python 3.11.6` — you already have Python. Skip to Part 2.
+4. If you see "command not found" — you need to install Python:
+   - Go to https://www.python.org/downloads/
+   - Click the big yellow **"Download Python"** button
+   - Open the downloaded file and follow the installer (just click "Continue" / "Agree" / "Install" through each screen)
+   - Close and reopen Terminal, then try `python3 --version` again
+
+### On Windows:
+
+1. Open **Command Prompt**
+   - Press the **Windows key** on your keyboard
+   - Type **cmd** and press Enter
+   - A black window with a blinking cursor will open
+   - **This is where you'll type commands throughout this guide**
+
+2. Type this and press Enter:
+   ```
+   python --version
+   ```
+3. If you see something like `Python 3.11.6` — you already have Python. Skip to Part 2.
+4. If you see "not recognized" or it opens the Microsoft Store:
+   - Go to https://www.python.org/downloads/
+   - Click the big yellow **"Download Python"** button
+   - Open the downloaded file
+   - **IMPORTANT:** On the first screen, check the box that says **"Add Python to PATH"** (at the bottom) before clicking "Install Now"
+   - Close and reopen Command Prompt, then try `python --version` again
+
+---
+
+## Part 2: Download This Project
+
+You need to get the project files onto your computer.
+
+### Easiest way — download as a ZIP:
+
+1. Go to the GitHub page for this project
+2. Click the green **"Code"** button
+3. Click **"Download ZIP"**
+4. Find the downloaded ZIP file (probably in your Downloads folder)
+5. Unzip it (double-click on Mac, or right-click > "Extract All" on Windows)
+6. You'll now have a folder called something like `Dining-out-editorial-scraper-tool-`
+
+### Now open Terminal/Command Prompt and navigate to that folder:
+
+**On Mac** (if the folder is in your Downloads):
+```
+cd ~/Downloads/Dining-out-editorial-scraper-tool-
+```
+
+**On Windows** (if the folder is in your Downloads):
+```
+cd C:\Users\YourName\Downloads\Dining-out-editorial-scraper-tool-
+```
+(Replace `YourName` with your actual Windows username)
+
+**How to verify you're in the right folder:** Type `ls` (Mac) or `dir` (Windows) and press Enter. You should see files like `main.py`, `requirements.txt`, `PLAN.md`, etc.
+
+---
+
+## Part 3: Install the Tool's Dependencies
+
+The tool needs some extra software packages. This one command installs all of them.
+
+**On Mac**, type:
+```
+pip3 install -r requirements.txt
+```
+
+**On Windows**, type:
+```
 pip install -r requirements.txt
 ```
 
-If you get an error about `sgmllib3k`, run this first:
-```bash
-pip install 'setuptools==67.8.0'
-pip install -r requirements.txt
+You'll see a bunch of text scrolling by — that's normal. Wait until it finishes and you see the blinking cursor again.
+
+**If you see an error about `sgmllib3k`**, run this first, then try again:
 ```
+pip3 install 'setuptools==67.8.0'
+pip3 install -r requirements.txt
+```
+(On Windows, use `pip` instead of `pip3`)
 
 ---
 
-## Step 2: Create Your .env File
+## Part 4: Create Your Secrets File
 
-```bash
+The tool needs passwords and API keys to talk to Reddit, Yelp, and your email.
+These go in a file called `.env` that stays on your computer and is never uploaded
+anywhere.
+
+**On Mac:**
+```
 cp .env.example .env
 ```
 
-Open `.env` in a text editor. You'll fill in the values from the steps below.
+**On Windows:**
+```
+copy .env.example .env
+```
+
+Now open the `.env` file in a text editor:
+- **On Mac:** `open -a TextEdit .env`
+- **On Windows:** `notepad .env`
+
+You'll see a file that looks like this:
+```
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
+YELP_API_KEY=your_yelp_api_key
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+SMTP_HOST=smtp.gmail.com
+```
+
+**Leave this file open** — you'll paste in real values in the next steps.
 
 ---
 
-## Step 3: Reddit API Credentials (Free)
+## Part 5: Set Up Reddit (free, ~5 minutes)
 
-Reddit gives you free API access. Here's exactly how to get it:
+Reddit lets you pull data from its site for free. You just need to register
+your "app" with them so they know who's making the requests.
 
-1. Go to https://www.reddit.com/prefs/apps
-2. If you don't have a Reddit account, create one (takes 1 minute)
-3. Scroll to the bottom of the page and click **"create another app..."**
-4. Fill in the form:
-   - **name**: `DiningOutScraper` (or anything you want)
-   - **App type**: Select **"script"** (the third option)
-   - **description**: `Editorial trend scraper for DiningOut`
-   - **about url**: leave blank
-   - **redirect uri**: `http://localhost:8080` (required but we won't use it)
-5. Click **"create app"**
-6. You'll see your new app. The credentials are:
-   - **client_id**: The string of characters directly under "personal use script" (looks like `aBcDeFgHiJkLmN`)
-   - **client_secret**: The string next to "secret" (looks like `xYz123AbC456dEf789GhI`)
+### Step 5a: Create a Reddit account (if you don't have one)
 
-7. Add them to your `.env` file:
-   ```
-   REDDIT_CLIENT_ID=aBcDeFgHiJkLmN
-   REDDIT_CLIENT_SECRET=xYz123AbC456dEf789GhI
-   ```
+1. Go to https://www.reddit.com
+2. Click **"Sign Up"** in the top right
+3. Follow the prompts — you just need an email, username, and password
+4. Verify your email if asked
 
-**Rate limits**: Reddit allows 60 requests/minute for script apps. Our scraper uses ~20 requests per run, so you'll never hit this.
+### Step 5b: Register your app with Reddit
+
+1. Make sure you're logged into Reddit
+2. Go to this page: https://www.reddit.com/prefs/apps
+3. Scroll all the way down to the bottom of the page
+4. Click the button that says **"are you a developer? create an app..."** (or "create another app...")
+5. You'll see a form. Fill it in exactly like this:
+
+   | Field | What to type |
+   |---|---|
+   | **name** | `DiningOutScraper` |
+   | **App type** | Click the circle next to **"script"** |
+   | **description** | `Trend scraper for editorial team` |
+   | **about url** | Leave blank |
+   | **redirect uri** | `http://localhost:8080` |
+
+6. Click **"create app"**
+
+### Step 5c: Find your credentials
+
+After clicking "create app", you'll see a box with your app info. Here's how to
+find the two pieces of information you need:
+
+```
+DiningOutScraper
+personal use script
+aBcDeFgHiJkLmN          <--- THIS is your Client ID
+                              (the random letters/numbers right under
+                               "personal use script")
+
+secret: xYz123AbC...    <--- THIS is your Client Secret
+                              (the value after the word "secret")
+```
+
+### Step 5d: Paste them into your .env file
+
+Go back to the `.env` file you opened earlier. Replace the placeholder text:
+
+**Before:**
+```
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
+```
+
+**After** (using your actual values):
+```
+REDDIT_CLIENT_ID=aBcDeFgHiJkLmN
+REDDIT_CLIENT_SECRET=xYz123AbC456dEf789GhI
+```
+
+**Important:** No spaces around the `=` sign, and no quotes around the values.
 
 ---
 
-## Step 4: Yelp API Key (Free)
+## Part 6: Set Up Yelp (free, ~5 minutes)
 
-Yelp's free tier gives 500 API calls/day. Our scraper uses ~40-80 calls per weekly run.
+Yelp lets you look up restaurant data through their API. The free tier gives you
+500 lookups per day — we only need about 50 per week.
+
+### Step 6a: Create a Yelp developer account
 
 1. Go to https://www.yelp.com/developers
-2. Click **"Get Started"** or **"Create App"**
-3. If you don't have a Yelp account, create one
-4. Fill in the app form:
-   - **App Name**: `DiningOut Scraper`
-   - **Industry**: `Journalism / Media`
-   - **Contact Email**: your work email
-   - **Description**: `Track restaurant trends for editorial coverage`
-5. Agree to the terms and click **"Create New App"**
-6. On the next page, you'll see your **API Key** — it's a long string starting with something like `bEaR...`
-7. Add it to your `.env` file:
-   ```
-   YELP_API_KEY=bEaR1234567890abcdefghijklmnop
-   ```
+2. If you have a Yelp account, click **"Log In"**. If not, click **"Sign Up"**
+3. After logging in, look for a button that says **"Create App"** or **"Get Started"**
 
-**Cost**: Free. The free tier (500 calls/day) is more than enough. If you ever need more, paid plans start at ~$1/month.
+### Step 6b: Create your app
+
+Fill in the form:
+
+| Field | What to type |
+|---|---|
+| **App Name** | `DiningOut Scraper` |
+| **Industry** | Select `Journalism / Media` (or whatever's closest) |
+| **Contact Email** | Your work email |
+| **Description** | `Track restaurant trends for editorial coverage` |
+
+Check the box to agree to the terms, then click **"Create New App"**.
+
+### Step 6c: Get your API key
+
+After creating the app, you'll see a page with your **API Key**. It's a long
+string of random characters. It might look something like:
+```
+bEaR1a2b3c4d5e6f7g8h9i0jklmnopqrstuvwxyz
+```
+
+### Step 6d: Paste it into your .env file
+
+In your `.env` file, replace:
+
+**Before:**
+```
+YELP_API_KEY=your_yelp_api_key
+```
+
+**After:**
+```
+YELP_API_KEY=bEaR1a2b3c4d5e6f7g8h9i0jklmnopqrstuvwxyz
+```
 
 ---
 
-## Step 5: Email Delivery Setup
+## Part 7: Set Up Email Sending (free, ~10 minutes)
 
-You have two options. **Option A (Gmail)** is the easiest to set up. **Option B (SendGrid)** is more reliable for production.
+The tool needs to send emails to your editorial team. The easiest way is to
+use a Gmail account. The tool will send emails *from* this Gmail address.
 
-### Option A: Gmail SMTP (Easiest)
+**You can use your personal Gmail or create a new one just for this tool.**
+Creating a new one (like `diningout.trends@gmail.com`) is a nice option because
+the reports will come from a recognizable address.
 
-This uses a Gmail account to send the reports. You'll need to create an "App Password" since Google blocks regular password login for scripts.
+### Step 7a: Turn on 2-Step Verification (if not already on)
+
+Google requires this before they'll let you create an app password.
 
 1. Go to https://myaccount.google.com/security
-2. Make sure **2-Step Verification** is turned ON (required for app passwords)
-   - If it's off, click it and follow the setup (takes 2 minutes)
-3. Go to https://myaccount.google.com/apppasswords
-   - Or: Security > 2-Step Verification > scroll to bottom > "App passwords"
-4. Under "Select app", choose **"Mail"**
-5. Under "Select device", choose **"Other"** and type `DiningOut Scraper`
-6. Click **"Generate"**
-7. Google will show you a **16-character password** like `abcd efgh ijkl mnop`
-   - Copy it (remove the spaces)
-   - **This is shown only once** — save it somewhere safe
+2. Look for **"2-Step Verification"** (it's under "How you sign in to Google")
+3. If it says **"On"** — great, skip to Step 7b
+4. If it says **"Off"** — click on it and follow the prompts:
+   - Google will ask for your phone number
+   - They'll send you a code via text message
+   - Enter the code
+   - Click "Turn On"
+   - This takes about 2 minutes
 
-8. Add to your `.env` file:
+### Step 7b: Create an App Password
+
+An "App Password" is a special password that lets the scraper tool send emails
+from your Gmail account. It's different from your regular Gmail password.
+
+1. Go to https://myaccount.google.com/apppasswords
+   - If that link doesn't work, go to: myaccount.google.com > Security > 2-Step Verification > scroll to the very bottom > "App passwords"
+2. You'll see a page that says "App passwords"
+3. In the text field that says **"App name"**, type: `DiningOut Scraper`
+4. Click **"Create"**
+5. A popup will appear showing a **16-character password** that looks like:
    ```
-   SMTP_USER=yourname@gmail.com
-   SMTP_PASSWORD=abcdefghijklmnop
-   SMTP_HOST=smtp.gmail.com
+   abcd efgh ijkl mnop
    ```
+6. **Copy this password** (write it down too — it's shown only this one time!)
+   - Remove the spaces so it's just: `abcdefghijklmnop`
 
-9. In `config/config.yaml`, update:
-   ```yaml
-   email_method: smtp
-   email_from: "yourname@gmail.com"
-   ```
+### Step 7c: Paste into your .env file
 
-### Option B: SendGrid API (More Reliable)
+In your `.env` file, replace:
 
-SendGrid's free tier allows 100 emails/day — plenty for weekly reports to 7 people.
+**Before:**
+```
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+SMTP_HOST=smtp.gmail.com
+```
 
-1. Go to https://signup.sendgrid.com/
-2. Create a free account
-3. Complete email verification
-4. In the SendGrid dashboard, go to **Settings > API Keys**
-5. Click **"Create API Key"**
-   - Name: `DiningOut Scraper`
-   - Permissions: **"Restricted Access"** > toggle ON **"Mail Send"** only
-6. Click **"Create & View"**
-7. Copy the API key (starts with `SG.`)
-   - **This is shown only once**
+**After** (using your actual Gmail and the app password you just created):
+```
+SMTP_USER=diningout.trends@gmail.com
+SMTP_PASSWORD=abcdefghijklmnop
+SMTP_HOST=smtp.gmail.com
+```
 
-8. **Verify a sender identity** (required by SendGrid):
-   - Go to **Settings > Sender Authentication**
-   - Click **"Verify a Single Sender"**
-   - Fill in your sending email address and name
-   - Check your inbox and click the verification link
+### Step 7d: Save and close the .env file
 
-9. Add to your `.env` file:
-   ```
-   SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-   ```
+Make sure you've saved the file (Ctrl+S on Windows, Command+S on Mac).
 
-10. In `config/config.yaml`, update:
-    ```yaml
-    email_method: sendgrid
-    email_from: "trends@yourdomain.com"
-    ```
-
----
-
-## Step 6: Configure Recipients
-
-Open `config/config.yaml` and add your team's email addresses:
-
-```yaml
-email_recipients:
-  - editor1@diningout.com
-  - editor2@diningout.com
-  - editor3@diningout.com
-  - editor4@diningout.com
-  - editor5@diningout.com
-  - editor6@diningout.com
-  - editor7@diningout.com
+Your `.env` file should now look something like this (with your real values):
+```
+REDDIT_CLIENT_ID=aBcDeFgHiJkLmN
+REDDIT_CLIENT_SECRET=xYz123AbC456dEf789GhI
+YELP_API_KEY=bEaR1a2b3c4d5e6f7g8h9i0jklmnopqrstuvwxyz
+SMTP_USER=diningout.trends@gmail.com
+SMTP_PASSWORD=abcdefghijklmnop
+SMTP_HOST=smtp.gmail.com
 ```
 
 ---
 
-## Step 7: Test Everything
+## Part 8: Add Your Team's Email Addresses
 
-Run these commands in order:
+Now you need to tell the tool who should receive the reports.
 
-### 7a. Check that all data sources are reachable
-```bash
-python main.py health
+1. Open the file `config/config.yaml` in a text editor:
+   - **On Mac:** `open -a TextEdit config/config.yaml`
+   - **On Windows:** `notepad config\config.yaml`
+
+2. Scroll down until you find this section (around line 93):
+   ```
+   email_recipients:
+     # Add ~7 editorial staff emails here
+     # - editor1@diningout.com
+     # - editor2@diningout.com
+   ```
+
+3. Remove the `#` symbols and replace with your team's actual emails:
+   ```
+   email_recipients:
+     - sarah@diningout.com
+     - mike@diningout.com
+     - jennifer@diningout.com
+     - alex@diningout.com
+     - chris@diningout.com
+     - taylor@diningout.com
+     - jordan@diningout.com
+   ```
+
+   **Important formatting rules:**
+   - Each line must start with exactly **4 spaces**, then a **dash**, then a **space**, then the email
+   - No tabs — only spaces
+   - The `- ` (dash space) before each email is required
+
+4. Also find this line (around line 85):
+   ```
+   email_from: "trends@diningout.com"
+   ```
+   Change it to match the Gmail you set up:
+   ```
+   email_from: "diningout.trends@gmail.com"
+   ```
+
+5. Save and close the file.
+
+---
+
+## Part 9: Test It
+
+Now let's make sure everything works. Go back to your Terminal / Command Prompt.
+
+**Make sure you're still in the project folder.** If you closed Terminal, reopen
+it and navigate back:
+- Mac: `cd ~/Downloads/Dining-out-editorial-scraper-tool-`
+- Windows: `cd C:\Users\YourName\Downloads\Dining-out-editorial-scraper-tool-`
+
+### Test 1: Check that all data sources are reachable
+
 ```
+python3 main.py health
+```
+(On Windows, use `python` instead of `python3`)
 
-You should see output like:
+You should see something like:
 ```
   news_rss: OK
   google_trends: OK
   reddit: OK
-  tiktok: OK        (may show FAIL — that's fine, it's best-effort)
+  tiktok: OK
   yelp: OK
   storage: {'total_items': 0, 'total_reports': 0, ...}
 ```
 
-If any show FAIL, double-check the credentials in your `.env` file.
+- **If reddit shows FAIL:** Go back to Part 5 and double-check the values in your `.env` file
+- **If yelp shows FAIL:** Go back to Part 6 and double-check the API key
+- **If tiktok shows FAIL:** That's OK! TikTok's data collection is "best effort" — the tool works fine without it
 
-### 7b. Collect data without sending email
-```bash
-python main.py collect
+### Test 2: Collect data (no email sent yet)
+
+```
+python3 main.py collect
 ```
 
-This pulls data from all sources and saves it to the database. You should see something like:
+This goes out to all the sources and pulls in data. It takes about 1-2 minutes.
+You should see a message like:
 ```
 Collection complete: 247 items saved as run collect-20260224-143022-a1b2c3
 ```
 
-### 7c. Generate a report and preview it
-```bash
-python main.py report -o test_report.html
+The number of items will vary. Anything above 50 is good.
+
+### Test 3: Preview the report
+
+```
+python3 main.py report -o test_report.html
 ```
 
-Open `test_report.html` in your browser to preview the email report. Check that:
-- City sections have data
-- Story ideas look reasonable
-- Competitor watch section shows articles
-- The layout looks good in your email client
+This creates an HTML file you can open in your browser:
+- **On Mac:** `open test_report.html`
+- **On Windows:** `start test_report.html`
 
-### 7d. Send a test email (to yourself first)
+A web page will open showing the report. Check that:
+- You see city sections (Denver, Houston, Dallas, Atlanta)
+- There are story ideas at the top
+- The "Competitor Watch" section has articles from Eater, Westword, etc.
 
-Temporarily change `email_recipients` in config.yaml to just your own email:
-```yaml
-email_recipients:
-  - you@youremail.com
-```
+### Test 4: Send yourself a test email
 
-Then run:
-```bash
-python main.py run-weekly
-```
+Before emailing the whole team, send one to yourself first.
 
-Check your inbox (and spam folder). Once the email looks good, add back the full recipient list.
+1. Open `config/config.yaml` in a text editor
+2. Temporarily change the recipients to just your email:
+   ```
+   email_recipients:
+     - your.personal.email@gmail.com
+   ```
+3. Save the file
+4. Run:
+   ```
+   python3 main.py run-weekly
+   ```
+5. Check your inbox (and your **spam/junk folder**) for the email
+6. If it looks good, change the recipients back to your team's emails and save
 
 ---
 
-## Step 8: Automate It
+## Part 10: Make It Run Automatically
 
-Choose one of these options to run the scraper automatically:
+Right now, the tool only runs when you manually type a command. Here's how to
+make it run on its own every week.
 
-### Option A: Built-in Scheduler (Simplest)
+### Easiest option: leave it running on your computer
 
-Just run this on any machine that stays on:
-```bash
-python main.py schedule
+```
+python3 main.py schedule
 ```
 
-This runs the weekly report Monday at 7:00 AM and the mid-week alert Wednesday at 12:00 PM. Press Ctrl+C to stop.
+This will:
+- Send the weekly report every **Monday at 7:00 AM**
+- Send a breaking news alert every **Wednesday at 12:00 PM** (only if there's actual breaking news)
 
-To run it in the background on a Linux/Mac server:
-```bash
-nohup python main.py schedule > scraper.log 2>&1 &
+**The catch:** Your computer needs to be on and not asleep for this to work.
+It will keep running until you close the Terminal window or press **Ctrl+C**.
+
+### Better option: ask your IT team
+
+If DiningOut has an IT person or a server, ask them to set up a **cron job**
+(that's the technical term for "run this on a schedule"). Show them this:
+
+```
+# Run these two commands on a schedule:
+# Monday at 7am:    python3 /path/to/main.py run-weekly
+# Wednesday at noon: python3 /path/to/main.py run-alert
 ```
 
-### Option B: Cron Job (Reliable)
+They'll know what to do with that.
 
-On a Linux/Mac machine, run `crontab -e` and add:
-```cron
-# Weekly report: Monday at 7am
-0 7 * * 1 cd /path/to/Dining-out-editorial-scraper-tool- && python main.py run-weekly >> /var/log/diningout-scraper.log 2>&1
+### Best option for non-technical users: GitHub Actions (free)
 
-# Mid-week alert: Wednesday at noon
-0 12 * * 3 cd /path/to/Dining-out-editorial-scraper-tool- && python main.py run-alert >> /var/log/diningout-scraper.log 2>&1
-```
-
-Replace `/path/to/` with the actual path to the project.
-
-### Option C: GitHub Actions (Free, No Server Needed)
-
-Create `.github/workflows/scraper.yml` in the repo — this runs the scraper on GitHub's servers for free. Let me know if you want me to set this up.
+This runs the tool on GitHub's computers for free — no server needed, your
+computer doesn't need to be on. Ask the developer who set this up (or a
+technically-inclined team member) to create a GitHub Actions workflow.
 
 ---
 
-## Customization
+## Customizing What the Tool Tracks
 
-### Add or remove keywords
-Edit the `keywords` list in `config/config.yaml`. Good candidates:
-- Food categories trending in your markets
-- Cuisine types (birria, ramen, Korean BBQ, etc.)
-- Industry terms (michelin, james beard, food truck, pop-up)
+### Change which food topics are tracked
 
-### Add new RSS feeds
-Add entries to `rss_feeds` in `config/config.yaml`:
-```yaml
-rss_feeds:
-  # ... existing feeds ...
-  D Magazine Food: "https://www.dmagazine.com/food-drink/feed/"
-  Houstonia Food: "https://www.houstoniamag.com/food/rss"
+Open `config/config.yaml` and find the `keywords` section. Add or remove items:
+
+```
+keywords:
+  - tacos
+  - steak
+  - fried chicken
+  - seafood
+  - cocktails
+  - birria          # add new ones here
+  - korean bbq      # like this
+  - food truck
 ```
 
-### Change report schedule
-Edit `weekly_day`, `weekly_time`, `midweek_day`, `midweek_time` in `config/config.yaml`.
+### Change when reports are sent
 
-### Adjust sensitivity
-- `breaking_threshold: 85.0` — Lower this (e.g., 70) to get more mid-week alerts, raise it (e.g., 95) for fewer
-- `google_news_max_results: 10` — Increase for more coverage, decrease for less noise
-- `reddit_posts_per_sub: 25` — Same idea
+In the same file, find:
+```
+weekly_day: monday
+weekly_time: "07:00"
+midweek_day: wednesday
+midweek_time: "12:00"
+```
+
+Change to whatever schedule you want. Times are in 24-hour format (so 2:00 PM = "14:00").
 
 ---
 
-## Troubleshooting
+## If Something Goes Wrong
 
-| Problem | Fix |
+| What happened | What to do |
 |---|---|
-| `ModuleNotFoundError` | Run `pip install -r requirements.txt` again |
-| Reddit shows FAIL in health check | Double-check `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` in `.env` |
-| Yelp shows FAIL | Check that `YELP_API_KEY` in `.env` is correct and the app is approved |
-| TikTok shows FAIL | This is expected — TikTok's unofficial API is unreliable. The rest of the pipeline still works. |
-| Email not received | Check spam folder. For Gmail: make sure you used an App Password, not your regular password. For SendGrid: verify your sender identity. |
-| Google Trends returns empty | Google rate-limits aggressively. Try increasing `google_trends_delay` to 5 or 10. |
-| `sgmllib3k` install error | Run `pip install 'setuptools==67.8.0'` first, then retry |
-| Report looks empty | Run `python main.py collect` first to populate the database, then `python main.py report` |
+| "command not found" when typing `python3` | Python isn't installed. Go back to Part 1. |
+| "No module named ..." | Run `pip3 install -r requirements.txt` again. |
+| Reddit says FAIL | Check your `.env` file — make sure `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` match exactly what Reddit showed you. No extra spaces. |
+| Yelp says FAIL | Same — check the `YELP_API_KEY` in `.env`. |
+| No email received | Check your spam folder. If using Gmail, make sure you created an App Password (Part 7), not using your regular password. |
+| Email says "authentication failed" | The app password in `.env` might be wrong. Go to https://myaccount.google.com/apppasswords and create a new one. |
+| Report is empty | Run `python3 main.py collect` first to get data, then `python3 main.py report`. |
+| TikTok shows FAIL | Normal — TikTok blocks automated access frequently. Everything else still works. |
+| "Permission denied" | On Mac, try adding `sudo` before the command (it will ask for your computer password). |
+| Something else broke | Take a screenshot of the error and send it to the person who set this up, or post it as a GitHub issue on the project. |
