@@ -327,15 +327,15 @@ requests>=2.31
 - **Seed keyword list** — Start with DiningOut's event categories (tacos, steak, fried chicken, seafood, cocktails) plus general dining terms (restaurant openings, new restaurants, chef, brunch, happy hour, patio dining, fine dining, fast casual). Add city-specific terms per market.
 - **Content alignment** — Reports should suggest specific DiningOut content types: "best of" lists, neighborhood guides, openings roundups, chef profiles, event intel.
 
-### Still need input from the team:
+### Answered by team:
 
-1. **Report frequency** — Recommendation: weekly report (Monday morning) with a lighter mid-week alert for breaking news (new openings, viral moments). The lean team likely can't act on daily reports.
-2. **Delivery method** — Email is the safest bet for a ~28-person company. Does the team use Slack? If so, a Slack channel (#editorial-trends) would add real-time value.
-3. **TikTok priority** — Recommendation: skip for v1. The unofficial API is fragile and DiningOut's editorial style (local restaurant coverage) is less dependent on TikTok virality than a national publication would be. Add in v2 once the core pipeline proves useful.
-4. **Yelp budget** — Recommendation: skip Yelp Insights for v1. The free sources (RSS + Google Trends + Reddit) cover the most actionable signals. Yelp's open/close data overlaps with what Eater and local news already report via RSS.
-5. **Competitor monitoring depth** — Should the report just count competitor articles, or also summarize/excerpt them? Full summarization is more useful but adds complexity.
-6. **Who receives the report?** — All editorial staff? Just editors? City-specific reports to city-specific editors (e.g., Texas Editor gets only Houston/Dallas)?
-7. **Historical storage** — Recommendation: 90 days of trend data to enable week-over-week and month-over-month comparisons.
+1. **Report frequency** — Weekly report (Monday morning) + lighter mid-week alert for breaking news (new openings, viral moments). ✅
+2. **Delivery method** — Email only. ~7 recipients on editorial staff. ✅
+3. **TikTok priority** — Include in v1 (Tier 2), but with graceful degradation if the unofficial API breaks. ✅
+4. **Yelp budget** — Include in v1 (Tier 2). Estimated ~$1-5/month for ~160-320 calls/month. ✅
+5. **Competitor monitoring depth** — Summarize competitor articles (not just count). ✅
+6. **Who receives the report?** — ~7 editorial staff members. Single consolidated report (not city-specific splits). ✅
+7. **Historical storage** — 90 days of trend data for week-over-week and month-over-month comparisons. ✅
 
 ---
 
