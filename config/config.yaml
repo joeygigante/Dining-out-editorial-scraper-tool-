@@ -1,0 +1,132 @@
+# DiningOut Editorial Scraper Tool — Configuration
+# Copy to config/config.yaml and customize.
+# Secrets (API keys, passwords) should go in .env, not here.
+
+# -------------------------------------------------------------------
+# Markets
+# -------------------------------------------------------------------
+cities:
+  - denver
+  - houston
+  - dallas
+  - atlanta
+
+# -------------------------------------------------------------------
+# Keywords
+# -------------------------------------------------------------------
+# DiningOut event categories + general dining terms.
+# These are searched across Google News, Google Trends, Reddit, etc.
+keywords:
+  # Event categories (always tracked)
+  - tacos
+  - steak
+  - fried chicken
+  - seafood
+  - cocktails
+  # General dining terms
+  - restaurant openings
+  - new restaurants
+  - chef
+  - brunch
+  - happy hour
+  - patio dining
+  - fine dining
+  - fast casual
+  - birria
+  - ramen
+  - pizza
+  - barbecue
+  - food truck
+  - michelin
+  - james beard
+
+# Event name mapping (keyword -> DiningOut event)
+event_keywords:
+  tacos: "TOP TACO"
+  steak: "RARE"
+  fried chicken: "CHICKEN FIGHT!"
+  seafood: "SURF"
+  cocktails: "COCKTAILS"
+
+# -------------------------------------------------------------------
+# RSS Feeds
+# -------------------------------------------------------------------
+# Competitor and industry publication feeds.
+# Feeds listed here are checked for keyword matches AND tracked for
+# competitor gap analysis.
+rss_feeds:
+  Eater Denver: "https://denver.eater.com/rss/index.xml"
+  Eater Houston: "https://houston.eater.com/rss/index.xml"
+  Eater Dallas: "https://dallas.eater.com/rss/index.xml"
+  Eater Atlanta: "https://atlanta.eater.com/rss/index.xml"
+  Eater National: "https://www.eater.com/rss/index.xml"
+  Bon Appetit: "https://www.bonappetit.com/feed/rss"
+  Westword Food: "https://www.westword.com/restaurants/rss"
+  5280 Food: "https://www.5280.com/feed/"
+
+google_news_max_results: 10
+
+# -------------------------------------------------------------------
+# Google Trends
+# -------------------------------------------------------------------
+google_trends_timeframe: "now 7-d"
+google_trends_delay: 2         # seconds between API calls
+google_trends_timeout: [10, 30]
+google_trends_retries: 3
+
+# -------------------------------------------------------------------
+# Reddit
+# -------------------------------------------------------------------
+reddit_posts_per_sub: 25
+# reddit_client_id and reddit_client_secret should be in .env
+
+# -------------------------------------------------------------------
+# TikTok
+# -------------------------------------------------------------------
+tiktok_enabled: true
+tiktok_max_results: 5
+tiktok_timeout: 15
+
+# -------------------------------------------------------------------
+# Yelp
+# -------------------------------------------------------------------
+yelp_results_per_query: 10
+yelp_timeout: 15
+# yelp_api_key should be in .env
+
+# -------------------------------------------------------------------
+# Analysis
+# -------------------------------------------------------------------
+tfidf_max_features: 1000
+max_clusters: 15
+breaking_threshold: 85.0
+
+# -------------------------------------------------------------------
+# Email Delivery
+# -------------------------------------------------------------------
+# Method: "smtp" or "sendgrid"
+email_method: smtp
+email_from: "trends@diningout.com"
+email_recipients:
+  # Add ~7 editorial staff emails here
+  # - editor1@diningout.com
+  # - editor2@diningout.com
+
+# SMTP settings (if email_method = smtp)
+smtp_host: smtp.gmail.com
+smtp_port: 587
+# smtp_user and smtp_password should be in .env
+
+# -------------------------------------------------------------------
+# Scheduling
+# -------------------------------------------------------------------
+weekly_day: monday
+weekly_time: "07:00"
+midweek_day: wednesday
+midweek_time: "12:00"
+
+# -------------------------------------------------------------------
+# Storage
+# -------------------------------------------------------------------
+db_path: "data/trends.db"
+retention_days: 90

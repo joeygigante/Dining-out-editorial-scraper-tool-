@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DiningOut Editorial Trends — {{ report_date }}</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 20px;
+    color: #2d2d2d;
+    background: #f9f9f9;
+    line-height: 1.6;
+  }
+  .header {
+    background: #1a1a2e;
+    color: white;
+    padding: 24px 28px;
+    border-radius: 8px 8px 0 0;
+    margin: -20px -20px 0 -20px;
+  }
+  .header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .header .subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #a0a0c0;
+  }
+  .section {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin: 16px 0;
+    padding: 20px;
+  }
+  .section h2 {
+    margin: 0 0 12px;
+    font-size: 17px;
+    color: #1a1a2e;
+    border-bottom: 2px solid #e8e8e8;
+    padding-bottom: 8px;
+  }
+  .city-tag {
+    display: inline-block;
+    background: #eef0ff;
+    color: #3b3b8f;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-right: 4px;
+    text-transform: uppercase;
+  }
+  .priority-high { border-left: 4px solid #e74c3c; }
+  .priority-medium { border-left: 4px solid #f39c12; }
+  .priority-low { border-left: 4px solid #95a5a6; }
+  .idea-card {
+    padding: 12px 16px;
+    margin: 8px 0;
+    border-radius: 4px;
+    background: #fafafa;
+  }
+  .idea-card .headline {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .idea-card .type {
+    display: inline-block;
+    background: #d4edda;
+    color: #155724;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+  .idea-card .detail {
+    font-size: 13px;
+    color: #666;
+    margin-top: 4px;
+  }
+  .trend-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .trend-item:last-child { border-bottom: none; }
+  .trend-item .title { font-weight: 500; }
+  .trend-item .title a { color: #2c3e50; text-decoration: none; }
+  .trend-item .title a:hover { text-decoration: underline; }
+  .trend-item .meta { font-size: 12px; color: #888; margin-top: 2px; }
+  .trend-item .summary { font-size: 13px; color: #555; margin-top: 4px; }
+  .score-badge {
+    display: inline-block;
+    background: #2ecc71;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+  }
+  .score-badge.hot { background: #e74c3c; }
+  .score-badge.warm { background: #f39c12; }
+  .score-badge.cool { background: #95a5a6; }
+  .gap-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .gap-item:last-child { border-bottom: none; }
+  .gap-item .competitor { font-size: 11px; font-weight: 600; color: #e74c3c; text-transform: uppercase; }
+  .gap-item .title { font-weight: 500; margin: 2px 0; }
+  .gap-item .summary { font-size: 13px; color: #555; }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #999;
+    padding: 16px 0;
+  }
+  .breaking-banner {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    border-radius: 6px;
+    padding: 16px;
+    margin: 16px 0;
+  }
+  .breaking-banner h3 {
+    margin: 0 0 8px;
+    color: #856404;
+    font-size: 15px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>DiningOut Editorial Trends</h1>
+  <div class="subtitle">Weekly Report — {{ report_date }} | {{ total_items }} signals collected across {{ sources_count }} sources</div>
+</div>
+
+<!-- Breaking News (if any) -->
+{% if breaking_items %}
+<div class="breaking-banner">
+  <h3>Breaking / Trending Now</h3>
+  {% for item in breaking_items[:5] %}
+  <div class="trend-item">
+    <div class="title">
+      {% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}
+      <span class="score-badge hot">{{ item.final_score }}</span>
+    </div>
+    <div class="meta">
+      {{ item.breaking_mentions }} mentions across {{ item.breaking_sources|join(', ') }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Story Ideas -->
+{% if story_ideas %}
+<div class="section">
+  <h2>Story Ideas This Week</h2>
+  {% for idea in story_ideas[:10] %}
+  <div class="idea-card priority-{{ idea.priority }}">
+    <div class="headline">{{ idea.headline }}</div>
+    <span class="type">{{ idea.type|replace('_', ' ') }}</span>
+    {% for city in idea.cities %}
+    <span class="city-tag">{{ city }}</span>
+    {% endfor %}
+    <div class="detail">{{ idea.supporting_data }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- City Spotlights -->
+{% for city_name, city_data in city_sections.items() %}
+<div class="section">
+  <h2><span class="city-tag">{{ city_name }}</span> Spotlight</h2>
+
+  {% if city_data.trends %}
+  <h3 style="font-size:14px; color:#666; margin:12px 0 6px;">Google Trends</h3>
+  {% for item in city_data.trends[:5] %}
+  <div class="trend-item">
+    <div class="title">{{ item.title }}
+      <span class="score-badge {% if item.final_score >= 70 %}hot{% elif item.final_score >= 40 %}warm{% else %}cool{% endif %}">{{ item.final_score }}</span>
+    </div>
+    <div class="summary">{{ item.summary }}</div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if city_data.news %}
+  <h3 style="font-size:14px; color:#666; margin:12px 0 6px;">News & RSS</h3>
+  {% for item in city_data.news[:5] %}
+  <div class="trend-item">
+    <div class="title">
+      {% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}
+    </div>
+    {% if item.summary %}<div class="summary">{{ item.summary[:200] }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if city_data.reddit %}
+  <h3 style="font-size:14px; color:#666; margin:12px 0 6px;">Reddit Buzz</h3>
+  {% for item in city_data.reddit[:3] %}
+  <div class="trend-item">
+    <div class="title">
+      {% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}
+      <span class="score-badge {% if item.final_score >= 70 %}hot{% elif item.final_score >= 40 %}warm{% else %}cool{% endif %}">{{ item.final_score }}</span>
+    </div>
+    {% if item.summary %}<div class="summary">{{ item.summary[:200] }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if city_data.yelp %}
+  <h3 style="font-size:14px; color:#666; margin:12px 0 6px;">Yelp Hot & New</h3>
+  {% for item in city_data.yelp[:3] %}
+  <div class="trend-item">
+    <div class="title">
+      {% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}
+    </div>
+    <div class="summary">{{ item.summary }}</div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+{% endfor %}
+
+<!-- Event Intelligence -->
+{% if event_intel %}
+<div class="section">
+  <h2>Event Intelligence</h2>
+  <p style="font-size:13px; color:#666; margin-top:0;">Trends related to TOP TACO, RARE, CHICKEN FIGHT!, and SURF categories.</p>
+  {% for item in event_intel[:10] %}
+  <div class="trend-item">
+    <div class="title">{{ item.title }}
+      <span class="score-badge {% if item.final_score >= 70 %}hot{% elif item.final_score >= 40 %}warm{% else %}cool{% endif %}">{{ item.final_score }}</span>
+    </div>
+    <div class="meta">
+      {% for city in item.cities %}<span class="city-tag">{{ city }}</span>{% endfor %}
+    </div>
+    {% if item.summary %}<div class="summary">{{ item.summary[:200] }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Competitor Watch -->
+{% if competitor_gaps or competitor_activity %}
+<div class="section">
+  <h2>Competitor Watch</h2>
+
+  {% if competitor_gaps %}
+  <h3 style="font-size:14px; color:#e74c3c; margin:12px 0 6px;">Coverage Gaps — They Covered It, We Haven't</h3>
+  {% for gap in competitor_gaps[:8] %}
+  <div class="gap-item">
+    <div class="competitor">{{ gap.competitor }}</div>
+    <div class="title">
+      {% if gap.url %}<a href="{{ gap.url }}" style="color:#2c3e50; text-decoration:none;">{{ gap.title }}</a>{% else %}{{ gap.title }}{% endif %}
+      <span class="city-tag">{{ gap.city }}</span>
+    </div>
+    {% if gap.summary %}<div class="summary">{{ gap.summary[:200] }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if competitor_activity %}
+  <h3 style="font-size:14px; color:#666; margin:16px 0 6px;">What Competitors Published</h3>
+  {% for pub_name, articles in competitor_activity.items() %}
+  <div style="margin-bottom:12px;">
+    <strong style="font-size:13px;">{{ pub_name }}</strong> ({{ articles|length }} articles)
+    <ul style="margin:4px 0; padding-left:20px;">
+    {% for a in articles[:5] %}
+      <li style="font-size:13px; margin:2px 0;">
+        {% if a.url %}<a href="{{ a.url }}" style="color:#555;">{{ a.title }}</a>{% else %}{{ a.title }}{% endif %}
+      </li>
+    {% endfor %}
+    {% if articles|length > 5 %}
+      <li style="font-size:12px; color:#999;">... and {{ articles|length - 5 }} more</li>
+    {% endif %}
+    </ul>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- TikTok (if available) -->
+{% if tiktok_items %}
+<div class="section">
+  <h2>TikTok Signals</h2>
+  <p style="font-size:12px; color:#999; margin-top:0;">Best-effort data — TikTok collection may be intermittent.</p>
+  {% for item in tiktok_items[:5] %}
+  <div class="trend-item">
+    <div class="title">
+      {% if item.url %}<a href="{{ item.url }}">{{ item.title[:100] }}</a>{% else %}{{ item.title[:100] }}{% endif %}
+    </div>
+    <div class="meta">
+      {{ item.metadata.get('views', 0)|default(0) }} views · {{ item.metadata.get('likes', 0)|default(0) }} likes
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="footer">
+  <p>Generated by DiningOut Editorial Scraper Tool<br>
+  {{ total_items }} items from {{ sources_count }} sources | Data retained {{ retention_days }} days</p>
+</div>
+
+</body>
+</html>
