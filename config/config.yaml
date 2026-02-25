@@ -84,8 +84,17 @@ reddit_posts_per_sub: 25
 # TikTok
 # -------------------------------------------------------------------
 tiktok_enabled: true
-tiktok_max_results: 5
-tiktok_timeout: 15
+
+# Strategy 1: Direct TikTok scraping (requires TikTokApi + playwright)
+# Set to false to skip direct scraping even if library is installed.
+tiktok_direct_enabled: true
+tiktok_max_results: 5               # Max videos per query from direct API
+tiktok_timeout: 30                   # Seconds — Playwright is slower than plain HTTP
+# tiktok_ms_token should be in .env  # Grab from browser cookies for better results
+
+# Strategy 2: Google-for-TikTok (always active — no extra deps needed)
+# Searches Google News for articles about TikTok food trends.
+tiktok_google_max_results: 5         # Max articles per Google query
 
 # -------------------------------------------------------------------
 # Yelp

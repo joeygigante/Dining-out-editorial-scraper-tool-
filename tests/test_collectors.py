@@ -8,7 +8,7 @@ from src.collectors.base import City, Source, TrendItem
 from src.collectors.news_rss import NewsRSSCollector, _detect_city
 from src.collectors.google_trends import GoogleTrendsCollector
 from src.collectors.reddit import RedditCollector, _engagement_score
-from src.collectors.tiktok import TikTokCollector, _virality_score
+from src.collectors.tiktok import TikTokCollector, _virality_score, _google_tiktok_score
 from src.collectors.yelp import YelpCollector, _yelp_score
 
 
@@ -114,10 +114,68 @@ class TestTikTokCollector:
     def test_virality_score_zero(self):
         assert _virality_score(0, 0, 0) == 0.0
 
+    def test_google_tiktok_score_viral(self):
+        score = _google_tiktok_score(
+            "This Denver taco spot went viral on TikTok",
+            "The restaurant gained millions of views",
+        )
+        # Should score high — "viral", "tiktok", "restaurant" all present
+        assert score >= 40.0
+
+    def test_google_tiktok_score_baseline(self):
+        score = _google_tiktok_score("Unrelated article", "No relevant terms")
+        # Should be low — only gets the base 10 points
+        assert score == 10.0
+
+    def test_google_tiktok_score_cap(self):
+        # Even with every signal, should cap at 100
+        score = _google_tiktok_score(
+            "viral trending blew up went viral tiktok famous million views tiktok",
+            "restaurant food chef dining opening best new tiktok",
+        )
+        assert score <= 100.0
+
     def test_collect_disabled(self):
         collector = TikTokCollector({"tiktok_enabled": False})
         items = collector.collect(["tacos"], [City.DENVER])
         assert items == []
+
+    @patch("src.collectors.tiktok.feedparser.parse")
+    def test_google_tiktok_returns_items(self, mock_parse):
+        mock_entry = MagicMock()
+        mock_entry.get.side_effect = lambda k, d="": {
+            "title": "Denver restaurant goes viral on TikTok",
+            "link": "https://example.com/article",
+            "summary": "A taco spot in Denver blew up on TikTok this week",
+        }.get(k, d)
+        mock_entry.published_parsed = None
+        mock_entry.updated_parsed = None
+
+        mock_feed = MagicMock()
+        mock_feed.entries = [mock_entry]
+        mock_parse.return_value = mock_feed
+
+        collector = TikTokCollector({
+            "tiktok_enabled": True,
+            "tiktok_direct_enabled": False,  # Skip direct API
+            "tiktok_google_max_results": 5,
+        })
+        items = collector.collect(["tacos"], [City.DENVER])
+        assert len(items) > 0
+        # All items should use the google_news method
+        assert all(i.metadata.get("method") == "google_news" for i in items)
+
+    @patch("src.collectors.tiktok.feedparser.parse")
+    def test_google_tiktok_handles_error(self, mock_parse):
+        mock_parse.side_effect = Exception("Network error")
+        collector = TikTokCollector({
+            "tiktok_enabled": True,
+            "tiktok_direct_enabled": False,
+            "tiktok_google_max_results": 5,
+        })
+        # Should not raise — returns empty list
+        items = collector.collect(["tacos"], [City.DENVER])
+        assert isinstance(items, list)
 
 
 class TestYelpCollector:
