@@ -1,0 +1,67 @@
+name: Run DiningOut Trend Scraper
+
+on:
+  # Run manually from GitHub UI (Actions tab → "Run workflow")
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode"
+        required: true
+        default: "run-weekly"
+        type: choice
+        options:
+          - run-weekly
+          - run-alert
+          - collect
+          - health
+
+  # Automated schedule
+  schedule:
+    # Weekly report: Monday at 7:00 AM ET (12:00 UTC)
+    - cron: "0 12 * * 1"
+    # Mid-week alert: Wednesday at 12:00 PM ET (17:00 UTC)
+    - cron: "0 17 * * 3"
+
+jobs:
+  scraper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create .env from secrets
+        run: |
+          cat > .env << 'ENVEOF'
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          ENVEOF
+
+      - name: Run scraper (manual trigger)
+        if: github.event_name == 'workflow_dispatch'
+        run: python main.py --verbose ${{ inputs.mode }}
+
+      - name: Run weekly report (Monday schedule)
+        if: github.event_name == 'schedule' && github.event.schedule == '0 12 * * 1'
+        run: python main.py --verbose run-weekly
+
+      - name: Run mid-week alert (Wednesday schedule)
+        if: github.event_name == 'schedule' && github.event.schedule == '0 17 * * 3'
+        run: python main.py --verbose run-alert
+
+      - name: Upload report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-run-${{ github.run_id }}
+          path: data/
+          retention-days: 30
