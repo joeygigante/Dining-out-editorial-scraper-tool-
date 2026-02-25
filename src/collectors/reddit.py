@@ -1,10 +1,18 @@
-"""Collect trending dining discussions from Reddit city and food subreddits."""
+"""Collect trending dining discussions from Reddit city and food subreddits.
+
+Uses Reddit's public JSON endpoints (append ``.json`` to any subreddit URL).
+No API key, no OAuth, no PRAW dependency — just plain HTTP requests with a
+polite User-Agent.  Rate-limited to ~1 req/sec to stay under Reddit's
+unauthenticated limit.
+"""
 
 from __future__ import annotations
 
+import math
+import time
 from datetime import datetime, timezone
 
-import praw
+import requests
 
 from src.collectors.base import (
     CITY_SUBREDDITS,
@@ -17,22 +25,11 @@ from src.collectors.base import (
 # National food subreddits to always scan
 FOOD_SUBREDDITS = ["food", "FoodPorn", "restaurants", "Cooking", "AskCulinary"]
 
+_USER_AGENT = "DiningOutScraper/1.0 (editorial trend research; no login)"
+
 
 class RedditCollector(BaseCollector):
     name = "reddit"
-
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self._reddit: praw.Reddit | None = None
-
-    def _get_client(self) -> praw.Reddit:
-        if self._reddit is None:
-            self._reddit = praw.Reddit(
-                client_id=self.config["reddit_client_id"],
-                client_secret=self.config["reddit_client_secret"],
-                user_agent=self.config.get("reddit_user_agent", "DiningOutScraper/1.0"),
-            )
-        return self._reddit
 
     def collect(self, keywords: list[str], cities: list[City]) -> list[TrendItem]:
         items: list[TrendItem] = []
@@ -61,12 +58,14 @@ class RedditCollector(BaseCollector):
     ) -> list[TrendItem]:
         items: list[TrendItem] = []
         try:
-            reddit = self._get_client()
-            subreddit = reddit.subreddit(sub_name)
+            posts = self._fetch_json(sub_name, limit)
 
-            for post in subreddit.hot(limit=limit):
-                title_lower = post.title.lower()
-                selftext_lower = (post.selftext or "")[:1000].lower()
+            for post in posts:
+                data = post.get("data", {})
+                title = data.get("title", "")
+                selftext = data.get("selftext", "")[:1000]
+                title_lower = title.lower()
+                selftext_lower = selftext.lower()
                 combined = f"{title_lower} {selftext_lower}"
 
                 matched_keywords = [kw for kw in keywords if kw in combined]
@@ -91,24 +90,32 @@ class RedditCollector(BaseCollector):
                 if not matched_keywords and not (is_city_sub and has_food_signal):
                     continue
 
-                score = post.score
-                comment_count = post.num_comments
+                score = data.get("score", 0)
+                comment_count = data.get("num_comments", 0)
+                permalink = data.get("permalink", "")
+
+                created_utc = data.get("created_utc", 0)
+                published = (
+                    datetime.fromtimestamp(created_utc, tz=timezone.utc)
+                    if created_utc
+                    else None
+                )
 
                 items.append(
                     TrendItem(
-                        title=post.title,
+                        title=title,
                         source=Source.REDDIT,
                         city=city,
-                        url=f"https://reddit.com{post.permalink}",
-                        summary=(post.selftext or "")[:500],
-                        published=datetime.fromtimestamp(post.created_utc, tz=timezone.utc),
+                        url=f"https://reddit.com{permalink}",
+                        summary=selftext[:500],
+                        published=published,
                         raw_score=_engagement_score(score, comment_count),
                         metadata={
                             "subreddit": sub_name,
                             "upvotes": score,
                             "comments": comment_count,
                             "matched_keywords": matched_keywords,
-                            "upvote_ratio": post.upvote_ratio,
+                            "upvote_ratio": data.get("upvote_ratio", 0),
                         },
                     )
                 )
@@ -117,13 +124,32 @@ class RedditCollector(BaseCollector):
 
         return items
 
+    def _fetch_json(self, sub_name: str, limit: int) -> list[dict]:
+        """Fetch hot posts from a subreddit using the public .json endpoint."""
+        url = f"https://www.reddit.com/r/{sub_name}/hot.json"
+        params = {"limit": min(limit, 100), "raw_json": 1}
+        timeout = self.config.get("reddit_timeout", 15)
+        delay = self.config.get("reddit_delay", 1.0)
+
+        resp = requests.get(
+            url,
+            params=params,
+            headers={"User-Agent": _USER_AGENT},
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+
+        # Be polite — wait between requests
+        time.sleep(delay)
+
+        data = resp.json()
+        children = data.get("data", {}).get("children", [])
+        return children
+
     def health_check(self) -> bool:
         try:
-            reddit = self._get_client()
-            # Quick check: can we reach Reddit?
-            sub = reddit.subreddit("food")
-            next(sub.hot(limit=1))
-            return True
+            posts = self._fetch_json("food", 1)
+            return len(posts) > 0
         except Exception:
             return False
 
@@ -132,10 +158,8 @@ def _engagement_score(upvotes: int, comments: int) -> float:
     """Normalize Reddit engagement to 0-100 scale.
 
     Combines upvotes and comments with diminishing returns.
-    A post with 100 upvotes and 50 comments ≈ score 65.
+    A post with 100 upvotes and 50 comments ~ score 65.
     """
-    import math
-
     up_score = math.log1p(upvotes) * 8
     comment_score = math.log1p(comments) * 12  # Comments signal strong interest
     return min(up_score + comment_score, 100.0)

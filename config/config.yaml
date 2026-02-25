@@ -78,7 +78,8 @@ google_trends_retries: 3
 # Reddit
 # -------------------------------------------------------------------
 reddit_posts_per_sub: 25
-# reddit_client_id and reddit_client_secret should be in .env
+reddit_delay: 1.0                    # Seconds between requests (be polite)
+reddit_timeout: 15
 
 # -------------------------------------------------------------------
 # TikTok

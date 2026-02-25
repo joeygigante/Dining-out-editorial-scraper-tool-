@@ -125,8 +125,6 @@ class Pipeline:
                 results[c.name] = False
 
         # Show skipped sources so the user knows they're not forgotten
-        if "reddit" not in collector_names:
-            results["reddit"] = "SKIPPED (no credentials)"
         if "yelp" not in collector_names:
             results["yelp"] = "SKIPPED (no API key)"
 
@@ -169,11 +167,8 @@ class Pipeline:
             GoogleTrendsCollector(self.config),
         ]
 
-        # Reddit — requires API credentials
-        if _has_credential(self.config, "reddit_client_id"):
-            collectors.append(RedditCollector(self.config))
-        else:
-            logger.info("Reddit collector skipped — no credentials configured")
+        # Reddit — uses public .json endpoints, no credentials needed
+        collectors.append(RedditCollector(self.config))
 
         # TikTok — Tier 2, graceful degradation
         if self.config.get("tiktok_enabled", True):
