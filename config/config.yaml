@@ -109,11 +109,9 @@ breaking_threshold: 85.0
 # -------------------------------------------------------------------
 # Method: "smtp" or "sendgrid"
 email_method: smtp
-email_from: "trends@diningout.com"
+email_from: "joey@giantedgemarketing.com"
 email_recipients:
-  # Add ~7 editorial staff emails here
-  # - editor1@diningout.com
-  # - editor2@diningout.com
+  - jgigante@diningout.com
 
 # SMTP settings (if email_method = smtp)
 smtp_host: smtp.gmail.com
