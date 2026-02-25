@@ -115,12 +115,21 @@ class Pipeline:
     def health_check(self) -> dict:
         """Check the health of all configured collectors."""
         collectors = self._build_collectors()
+        collector_names = {c.name for c in collectors}
         results = {}
+
         for c in collectors:
             try:
                 results[c.name] = c.health_check()
             except Exception:
                 results[c.name] = False
+
+        # Show skipped sources so the user knows they're not forgotten
+        if "reddit" not in collector_names:
+            results["reddit"] = "SKIPPED (no credentials)"
+        if "yelp" not in collector_names:
+            results["yelp"] = "SKIPPED (no API key)"
+
         results["storage"] = self.storage.get_stats()
         return results
 
@@ -161,19 +170,31 @@ class Pipeline:
         ]
 
         # Reddit — requires API credentials
-        if self.config.get("reddit_client_id"):
+        if _has_credential(self.config, "reddit_client_id"):
             collectors.append(RedditCollector(self.config))
         else:
-            logger.info("Reddit collector skipped — no credentials")
+            logger.info("Reddit collector skipped — no credentials configured")
 
         # TikTok — Tier 2, graceful degradation
         if self.config.get("tiktok_enabled", True):
             collectors.append(TikTokCollector(self.config))
 
         # Yelp — Tier 2, requires API key
-        if self.config.get("yelp_api_key"):
+        if _has_credential(self.config, "yelp_api_key"):
             collectors.append(YelpCollector(self.config))
         else:
-            logger.info("Yelp collector skipped — no API key")
+            logger.info("Yelp collector skipped — no API key configured")
 
         return collectors
+
+
+_PLACEHOLDER_PREFIXES = ("your_", "paste_", "replace_", "insert_")
+
+
+def _has_credential(config: dict, key: str) -> bool:
+    """Return True if a credential is present and not a placeholder value."""
+    val = config.get(key)
+    if not val:
+        return False
+    val_lower = val.strip().lower()
+    return not any(val_lower.startswith(p) for p in _PLACEHOLDER_PREFIXES)

@@ -126,6 +126,8 @@ def health_check(ctx):
     for name, status in results.items():
         if isinstance(status, dict):
             click.echo(f"  {name}: {status}")
+        elif isinstance(status, str):
+            click.echo(f"  {name}: {status}")
         else:
             icon = "OK" if status else "FAIL"
             click.echo(f"  {name}: {icon}")
