@@ -221,9 +221,9 @@
   {% endfor %}
   {% endif %}
 
-  {% if city_data.yelp %}
-  <h3 style="font-size:14px; color:#666; margin:12px 0 6px;">Yelp Hot & New</h3>
-  {% for item in city_data.yelp[:3] %}
+  {% if city_data.tiktok %}
+  <h3 style="font-size:14px; color:#666; margin:12px 0 6px;">TikTok Buzz</h3>
+  {% for item in city_data.tiktok[:3] %}
   <div class="trend-item">
     <div class="title">
       {% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}

@@ -19,7 +19,6 @@ class Source(str, Enum):
     GOOGLE_TRENDS = "google_trends"
     REDDIT = "reddit"
     TIKTOK = "tiktok"
-    YELP = "yelp"
 
 
 class City(str, Enum):

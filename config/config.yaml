@@ -98,13 +98,6 @@ tiktok_timeout: 30                   # Seconds — Playwright is slower than pla
 tiktok_google_max_results: 5         # Max articles per Google query
 
 # -------------------------------------------------------------------
-# Yelp
-# -------------------------------------------------------------------
-yelp_results_per_query: 10
-yelp_timeout: 15
-# yelp_api_key should be in .env
-
-# -------------------------------------------------------------------
 # Analysis
 # -------------------------------------------------------------------
 tfidf_max_features: 1000

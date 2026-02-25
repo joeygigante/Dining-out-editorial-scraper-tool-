@@ -26,7 +26,6 @@ SOURCE_WEIGHTS: dict[str, float] = {
     Source.GOOGLE_TRENDS.value: 1.2,
     Source.REDDIT.value: 0.9,
     Source.TIKTOK.value: 0.7,
-    Source.YELP.value: 0.6,
 }
 
 # Food-journalism boilerplate to filter out of TF-IDF

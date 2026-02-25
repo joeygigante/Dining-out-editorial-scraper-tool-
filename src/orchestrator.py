@@ -14,7 +14,6 @@ from src.collectors.google_trends import GoogleTrendsCollector
 from src.collectors.news_rss import NewsRSSCollector
 from src.collectors.reddit import RedditCollector
 from src.collectors.tiktok import TikTokCollector
-from src.collectors.yelp import YelpCollector
 from src.reporting.email_sender import EmailSender
 from src.reporting.generator import ReportGenerator
 from src.storage import Storage
@@ -124,10 +123,6 @@ class Pipeline:
             except Exception:
                 results[c.name] = False
 
-        # Show skipped sources so the user knows they're not forgotten
-        if "yelp" not in collector_names:
-            results["yelp"] = "SKIPPED (no API key)"
-
         results["storage"] = self.storage.get_stats()
         return results
 
@@ -173,12 +168,6 @@ class Pipeline:
         # TikTok — Tier 2, graceful degradation
         if self.config.get("tiktok_enabled", True):
             collectors.append(TikTokCollector(self.config))
-
-        # Yelp — Tier 2, requires API key
-        if _has_credential(self.config, "yelp_api_key"):
-            collectors.append(YelpCollector(self.config))
-        else:
-            logger.info("Yelp collector skipped — no API key configured")
 
         return collectors
 

@@ -9,7 +9,6 @@ from src.collectors.news_rss import NewsRSSCollector, _detect_city
 from src.collectors.google_trends import GoogleTrendsCollector
 from src.collectors.reddit import RedditCollector, _engagement_score
 from src.collectors.tiktok import TikTokCollector, _virality_score, _google_tiktok_score
-from src.collectors.yelp import YelpCollector, _yelp_score
 
 
 class TestTrendItem:
@@ -30,7 +29,7 @@ class TestTrendItem:
         assert item.metadata == {}
 
     def test_all_sources_exist(self):
-        assert len(Source) == 6
+        assert len(Source) == 5
         assert Source.GOOGLE_NEWS.value == "google_news"
         assert Source.TIKTOK.value == "tiktok"
 
@@ -176,18 +175,3 @@ class TestTikTokCollector:
         # Should not raise — returns empty list
         items = collector.collect(["tacos"], [City.DENVER])
         assert isinstance(items, list)
-
-
-class TestYelpCollector:
-    def test_yelp_score(self):
-        score = _yelp_score(4.5, 200)
-        assert 0 <= score <= 100
-
-    def test_yelp_score_zero(self):
-        score = _yelp_score(0, 0)
-        assert score == 0.0
-
-    def test_collect_no_api_key(self):
-        collector = YelpCollector({})
-        items = collector.collect(["tacos"], [City.DENVER])
-        assert items == []

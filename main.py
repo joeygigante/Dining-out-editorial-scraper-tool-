@@ -40,7 +40,6 @@ def _load_config(config_path: str) -> dict:
 
     # Environment variables override config file
     env_overrides = {
-        "yelp_api_key": os.getenv("YELP_API_KEY"),
         "tiktok_ms_token": os.getenv("TIKTOK_MS_TOKEN"),
         "sendgrid_api_key": os.getenv("SENDGRID_API_KEY"),
         "smtp_user": os.getenv("SMTP_USER"),

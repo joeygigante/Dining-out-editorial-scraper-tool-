@@ -3,7 +3,6 @@ from src.collectors.news_rss import NewsRSSCollector
 from src.collectors.google_trends import GoogleTrendsCollector
 from src.collectors.reddit import RedditCollector
 from src.collectors.tiktok import TikTokCollector
-from src.collectors.yelp import YelpCollector
 
 __all__ = [
     "BaseCollector",
@@ -12,5 +11,4 @@ __all__ = [
     "GoogleTrendsCollector",
     "RedditCollector",
     "TikTokCollector",
-    "YelpCollector",
 ]

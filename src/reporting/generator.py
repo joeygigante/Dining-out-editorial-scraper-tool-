@@ -103,7 +103,7 @@ class ReportGenerator:
                     if i.get("source") in (Source.GOOGLE_NEWS.value, Source.RSS_FEED.value)
                 ],
                 "reddit": [i for i in city_items if i.get("source") == Source.REDDIT.value],
-                "yelp": [i for i in city_items if i.get("source") == Source.YELP.value],
+                "tiktok": [i for i in city_items if i.get("source") == Source.TIKTOK.value],
             }
 
         return sections
