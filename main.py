@@ -43,6 +43,7 @@ def _load_config(config_path: str) -> dict:
         "reddit_client_id": os.getenv("REDDIT_CLIENT_ID"),
         "reddit_client_secret": os.getenv("REDDIT_CLIENT_SECRET"),
         "yelp_api_key": os.getenv("YELP_API_KEY"),
+        "tiktok_ms_token": os.getenv("TIKTOK_MS_TOKEN"),
         "sendgrid_api_key": os.getenv("SENDGRID_API_KEY"),
         "smtp_user": os.getenv("SMTP_USER"),
         "smtp_password": os.getenv("SMTP_PASSWORD"),
