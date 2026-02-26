@@ -75,8 +75,8 @@
   </div>
   <div class="meta">
     <span class="city-tag">{{ item.city }}</span>
-    Detected across {{ item.get('breaking_mentions', 1) }} sources:
-    {{ item.get('breaking_sources', [item.source])|join(', ') }}
+    Detected across {{ item.breaking_mentions|default(1) }} sources:
+    {{ item.breaking_sources|default([item.source])|join(', ') }}
   </div>
   {% if item.summary %}
   <div class="summary">{{ item.summary[:300] }}</div>

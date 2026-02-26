@@ -38,13 +38,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Create data directory
+        run: mkdir -p data
+
       - name: Create .env from secrets
         run: |
-          cat > .env << 'ENVEOF'
+          cat > .env <<'ENVEOF'
           SMTP_USER=${{ secrets.SMTP_USER }}
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
           SMTP_HOST=${{ secrets.SMTP_HOST }}
           ENVEOF
+          sed -i 's/^[[:space:]]*//' .env
 
       - name: Run scraper (manual trigger)
         if: github.event_name == 'workflow_dispatch'
@@ -65,3 +69,4 @@ jobs:
           name: scraper-run-${{ github.run_id }}
           path: data/
           retention-days: 30
+          if-no-files-found: ignore

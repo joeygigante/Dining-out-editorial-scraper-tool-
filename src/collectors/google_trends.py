@@ -21,7 +21,9 @@ class GoogleTrendsCollector(BaseCollector):
 
     def __init__(self, config: dict):
         super().__init__(config)
-        self._timeout = config.get("google_trends_timeout", (10, 30))
+        raw_timeout = config.get("google_trends_timeout", (10, 30))
+        # YAML parses [10, 30] as a list, but urllib3 v2+ requires a tuple
+        self._timeout = tuple(raw_timeout) if isinstance(raw_timeout, list) else raw_timeout
         self._retries = config.get("google_trends_retries", 3)
         self._batch_size = 5  # pytrends accepts max 5 keywords per request
 
