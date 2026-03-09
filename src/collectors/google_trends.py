@@ -39,7 +39,7 @@ class GoogleTrendsCollector(BaseCollector):
                 try:
                     batch_items = self._fetch_batch(batch, geo, city, timeframe)
                     items.extend(batch_items)
-                except Exception:
+                except (Exception, SystemExit):
                     self.logger.exception("Google Trends failed for %s in %s", batch, city.value)
 
                 # Be polite — Google rate-limits aggressively
@@ -52,7 +52,7 @@ class GoogleTrendsCollector(BaseCollector):
             try:
                 related = self._fetch_related_queries(top_keywords, geo, city)
                 items.extend(related)
-            except Exception:
+            except (Exception, SystemExit):
                 self.logger.exception("Related queries failed for %s", city.value)
 
         self.logger.info("Google Trends collected %d items", len(items))
@@ -153,5 +153,5 @@ class GoogleTrendsCollector(BaseCollector):
             pt.build_payload(["restaurant"], timeframe="now 1-d", geo="US")
             df = pt.interest_over_time()
             return not df.empty
-        except Exception:
+        except (Exception, SystemExit):
             return False

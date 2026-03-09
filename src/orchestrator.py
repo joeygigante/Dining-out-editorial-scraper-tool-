@@ -140,7 +140,7 @@ class Pipeline:
                 items = collector.collect(keywords, cities)
                 all_items.extend(items)
                 logger.info("%s: collected %d items", collector.name, len(items))
-            except Exception:
+            except (Exception, SystemExit):
                 logger.exception("Collector %s failed", collector.name)
 
         return all_items
@@ -153,7 +153,7 @@ class Pipeline:
         collector = NewsRSSCollector(self.config)
         try:
             return collector.collect(keywords, cities)
-        except Exception:
+        except (Exception, SystemExit):
             logger.exception("Fast collection failed")
             return []
 
