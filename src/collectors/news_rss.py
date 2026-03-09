@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timedelta, timezone
 from time import mktime
 from urllib.parse import quote_plus
 
 import feedparser
+import requests
+from bs4 import BeautifulSoup
 
 from src.collectors.base import BaseCollector, City, Source, TrendItem
 
 # Google News RSS search template — free, no API key needed
-_GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+# "when:7d" restricts results to the past 7 days
+_GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q={query}+when:7d&hl=en-US&gl=US&ceid=US:en"
 
 # Default publication feeds (can be overridden in config)
 DEFAULT_FEEDS: dict[str, str] = {
@@ -23,6 +27,14 @@ DEFAULT_FEEDS: dict[str, str] = {
     "Bon Appetit": "https://www.bonappetit.com/feed/rss",
     "Westword Food": "https://www.westword.com/restaurants/rss",
     "5280 Food": "https://www.5280.com/feed/",
+    "D Magazine Food": "https://www.dmagazine.com/publications/d-magazine/rss/",
+    "Houstonia Food": "https://www.houstoniamag.com/feed/rss/",
+    "Atlanta Magazine": "https://www.atlantamagazine.com/feed/",
+    "The Infatuation": "https://www.theinfatuation.com/rss",
+    "Infatuation Denver": "https://www.theinfatuation.com/denver/rss",
+    "Infatuation Houston": "https://www.theinfatuation.com/houston/rss",
+    "Infatuation Dallas": "https://www.theinfatuation.com/dallas-fort-worth/rss",
+    "Infatuation Atlanta": "https://www.theinfatuation.com/atlanta/rss",
 }
 
 # Map publication names to cities for automatic tagging
@@ -33,7 +45,17 @@ _FEED_CITY_MAP: dict[str, City] = {
     "Atlanta": City.ATLANTA,
     "Westword": City.DENVER,
     "5280": City.DENVER,
+    "D Magazine": City.DALLAS,
+    "Houstonia": City.HOUSTON,
+    "Atlanta Magazine": City.ATLANTA,
+    "Infatuation Denver": City.DENVER,
+    "Infatuation Houston": City.HOUSTON,
+    "Infatuation Dallas": City.DALLAS,
+    "Infatuation Atlanta": City.ATLANTA,
 }
+
+# Maximum age for items (days)
+_MAX_AGE_DAYS = 7
 
 
 def _detect_city(feed_name: str, title: str) -> City:
@@ -51,6 +73,46 @@ def _parse_date(entry) -> datetime | None:
     if hasattr(entry, "updated_parsed") and entry.updated_parsed:
         return datetime.fromtimestamp(mktime(entry.updated_parsed), tz=timezone.utc)
     return None
+
+
+def _is_recent(pub_date: datetime | None, max_days: int = _MAX_AGE_DAYS) -> bool:
+    """Return True if the item was published within the last max_days days."""
+    if pub_date is None:
+        return True  # Keep items with unknown dates rather than silently dropping
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=max_days)
+    return pub_date >= cutoff
+
+
+def _strip_html(text: str) -> str:
+    """Strip HTML tags and decode entities from a string."""
+    if not text:
+        return text
+    soup = BeautifulSoup(text, "html.parser")
+    clean = soup.get_text(separator=" ")
+    # Collapse multiple whitespace
+    clean = re.sub(r"\s+", " ", clean).strip()
+    return clean
+
+
+def _resolve_google_news_url(google_url: str) -> str:
+    """Try to resolve a Google News redirect URL to the actual article URL.
+
+    Falls back to the original URL if resolution fails.
+    """
+    if not google_url or "news.google.com" not in google_url:
+        return google_url
+    try:
+        resp = requests.head(
+            google_url,
+            allow_redirects=True,
+            timeout=5,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if resp.url and "news.google.com" not in resp.url:
+            return resp.url
+    except Exception:
+        pass
+    return google_url
 
 
 class NewsRSSCollector(BaseCollector):
@@ -92,14 +154,22 @@ class NewsRSSCollector(BaseCollector):
                 try:
                     feed = feedparser.parse(url)
                     for entry in feed.entries[:max_per_query]:
+                        pub_date = _parse_date(entry)
+                        if not _is_recent(pub_date):
+                            continue
+
+                        raw_url = entry.get("link", "")
+                        resolved_url = _resolve_google_news_url(raw_url)
+                        clean_summary = _strip_html(entry.get("summary", ""))
+
                         items.append(
                             TrendItem(
-                                title=entry.get("title", ""),
+                                title=_strip_html(entry.get("title", "")),
                                 source=Source.GOOGLE_NEWS,
                                 city=city,
-                                url=entry.get("link"),
-                                summary=entry.get("summary", "")[:500],
-                                published=_parse_date(entry),
+                                url=resolved_url,
+                                summary=clean_summary[:500],
+                                published=pub_date,
                                 raw_score=1.0,
                                 metadata={"keyword": kw, "query": query},
                             )
@@ -126,14 +196,23 @@ class NewsRSSCollector(BaseCollector):
                     continue
 
                 for entry in feed.entries:
+                    pub_date = _parse_date(entry)
+                    if not _is_recent(pub_date):
+                        continue
+
                     title = entry.get("title", "")
-                    summary = entry.get("summary", "")[:500]
-                    text = f"{title} {summary}".lower()
+                    raw_summary = entry.get("summary", "")[:500]
+                    clean_summary = _strip_html(raw_summary)
+                    text = f"{title} {clean_summary}".lower()
 
                     # Keep entries that match any keyword, or keep all competitor entries
                     is_competitor = any(
                         comp in feed_name.lower()
-                        for comp in ("eater", "westword", "5280", "d magazine", "houstonia", "atlanta magazine")
+                        for comp in (
+                            "eater", "westword", "5280", "d magazine",
+                            "houstonia", "atlanta magazine", "bon appetit",
+                            "infatuation",
+                        )
                     )
                     matches_keyword = any(kw in text for kw in kw_lower)
 
@@ -146,8 +225,8 @@ class NewsRSSCollector(BaseCollector):
                             source=Source.RSS_FEED,
                             city=_detect_city(feed_name, title),
                             url=entry.get("link"),
-                            summary=summary,
-                            published=_parse_date(entry),
+                            summary=clean_summary,
+                            published=pub_date,
                             raw_score=1.5 if matches_keyword else 0.5,
                             metadata={
                                 "feed_name": feed_name,

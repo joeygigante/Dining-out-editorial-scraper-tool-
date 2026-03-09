@@ -29,12 +29,15 @@ SOURCE_WEIGHTS: dict[str, float] = {
     Source.TIKTOK.value: 0.7,
 }
 
-# Food-journalism boilerplate to filter out of TF-IDF
+# Food-journalism boilerplate + HTML artifacts to filter out of TF-IDF
 STOP_WORDS = [
     "restaurant", "restaurants", "food", "dining", "new", "best",
     "chef", "menu", "eat", "eating", "dish", "dishes", "recipe",
     "recipes", "cook", "cooking", "meal", "meals", "review",
     "according", "also", "said", "year", "week", "time", "like",
+    # HTML artifacts that leak through RSS summaries
+    "nbsp", "amp", "quot", "font", "color", "href", "http", "https",
+    "www", "com", "html", "target", "blank", "div", "span", "style",
 ]
 
 
@@ -219,17 +222,8 @@ def detect_breaking_news(items: list[dict], threshold: float = 85.0) -> list[dic
 def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
     """Turn trend clusters into actionable editorial story ideas.
 
-    Returns a list of idea dicts:
-    [
-        {
-            "headline": "Best Birria in Denver",
-            "type": "best_of_list",
-            "supporting_data": "...",
-            "cities": ["denver"],
-            "priority": "high",
-        },
-        ...
-    ]
+    Uses the top-scoring item's title as the headline base (not raw TF-IDF
+    labels, which produce gibberish).
     """
     ideas = []
     event_keywords = config.get("event_keywords", {
@@ -243,35 +237,42 @@ def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
         label = cluster["label"].lower()
         cities = cluster["cities"]
         top_score = cluster["top_score"]
+        top_item = cluster["items"][0] if cluster["items"] else {}
+        top_title = top_item.get("title", cluster["label"])[:80]
 
         if top_score < 20:
             continue
 
         priority = "high" if top_score >= 70 else "medium" if top_score >= 40 else "low"
+        city_display = ", ".join(
+            c.replace("_", " ").title() for c in cities if c != "national"
+        ) or "National"
 
-        # Check for "Best of" list opportunity
-        for city in cities:
-            if city == "national":
-                continue
-            ideas.append(
-                {
-                    "headline": f"Best {cluster['label'].title()} in {city.replace('_', ' ').title()}",
-                    "type": "best_of_list",
-                    "supporting_data": f"Trending across {len(cluster['sources'])} sources with score {top_score}",
-                    "cities": cities,
-                    "priority": priority,
-                    "cluster_id": cluster["cluster_id"],
-                }
-            )
+        # One story idea per cluster (not per city)
+        ideas.append(
+            {
+                "headline": top_title,
+                "type": "trending_topic",
+                "supporting_data": (
+                    f"{len(cluster['items'])} signals across "
+                    f"{len(cluster['sources'])} sources in {city_display} "
+                    f"(score: {top_score})"
+                ),
+                "cities": cities,
+                "priority": priority,
+                "cluster_id": cluster["cluster_id"],
+            }
+        )
 
         # Check for event tie-in
+        combined_text = f"{label} {top_title.lower()}"
         for kw, event_name in event_keywords.items():
-            if kw in label:
+            if kw in combined_text:
                 ideas.append(
                     {
-                        "headline": f"{event_name} Intel: '{cluster['label'].title()}' is trending",
+                        "headline": f"{event_name} Intel: {top_title}",
                         "type": "event_intel",
-                        "supporting_data": f"Related to {event_name} — category '{kw}' active in {', '.join(cities)}",
+                        "supporting_data": f"Related to {event_name} — '{kw}' trending in {city_display}",
                         "cities": cities,
                         "priority": "high",
                         "cluster_id": cluster["cluster_id"],
@@ -281,23 +282,23 @@ def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
         # Check for openings/closings
         opening_signals = ["opening", "opened", "new restaurant", "coming soon", "first look"]
         closing_signals = ["closing", "closed", "shutting", "last day", "farewell"]
-        if any(sig in label for sig in opening_signals):
+        if any(sig in combined_text for sig in opening_signals):
             ideas.append(
                 {
-                    "headline": f"Restaurant Openings Roundup: {cluster['label'].title()}",
+                    "headline": f"Restaurant Openings: {top_title}",
                     "type": "openings_roundup",
-                    "supporting_data": f"{len(cluster['items'])} mentions across sources",
+                    "supporting_data": f"{len(cluster['items'])} mentions across sources in {city_display}",
                     "cities": cities,
                     "priority": "high",
                     "cluster_id": cluster["cluster_id"],
                 }
             )
-        elif any(sig in label for sig in closing_signals):
+        elif any(sig in combined_text for sig in closing_signals):
             ideas.append(
                 {
-                    "headline": f"Notable Closings: {cluster['label'].title()}",
+                    "headline": f"Notable Closings: {top_title}",
                     "type": "closings_roundup",
-                    "supporting_data": f"{len(cluster['items'])} mentions across sources",
+                    "supporting_data": f"{len(cluster['items'])} mentions across sources in {city_display}",
                     "cities": cities,
                     "priority": "medium",
                     "cluster_id": cluster["cluster_id"],

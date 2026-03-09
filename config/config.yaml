@@ -63,6 +63,14 @@ rss_feeds:
   Bon Appetit: "https://www.bonappetit.com/feed/rss"
   Westword Food: "https://www.westword.com/restaurants/rss"
   5280 Food: "https://www.5280.com/feed/"
+  D Magazine Food: "https://www.dmagazine.com/publications/d-magazine/rss/"
+  Houstonia Food: "https://www.houstoniamag.com/feed/rss/"
+  Atlanta Magazine: "https://www.atlantamagazine.com/feed/"
+  The Infatuation: "https://www.theinfatuation.com/rss"
+  Infatuation Denver: "https://www.theinfatuation.com/denver/rss"
+  Infatuation Houston: "https://www.theinfatuation.com/houston/rss"
+  Infatuation Dallas: "https://www.theinfatuation.com/dallas-fort-worth/rss"
+  Infatuation Atlanta: "https://www.theinfatuation.com/atlanta/rss"
 
 google_news_max_results: 10
 

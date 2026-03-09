@@ -260,7 +260,7 @@
   <h2>Competitor Watch</h2>
 
   {% if competitor_gaps %}
-  <h3 style="font-size:14px; color:#e74c3c; margin:12px 0 6px;">Coverage Gaps — They Covered It, We Haven't</h3>
+  <p style="font-size:13px; color:#666; margin-top:0;">Stories competitors covered this week that we haven't — potential coverage gaps.</p>
   {% for gap in competitor_gaps[:8] %}
   <div class="gap-item">
     <div class="competitor">{{ gap.competitor }}</div>
@@ -274,22 +274,12 @@
   {% endif %}
 
   {% if competitor_activity %}
-  <h3 style="font-size:14px; color:#666; margin:16px 0 6px;">What Competitors Published</h3>
+  <h3 style="font-size:14px; color:#666; margin:16px 0 6px;">Competitor Volume This Week</h3>
+  <div style="font-size:13px; color:#555;">
   {% for pub_name, articles in competitor_activity.items() %}
-  <div style="margin-bottom:12px;">
-    <strong style="font-size:13px;">{{ pub_name }}</strong> ({{ articles|length }} articles)
-    <ul style="margin:4px 0; padding-left:20px;">
-    {% for a in articles[:5] %}
-      <li style="font-size:13px; margin:2px 0;">
-        {% if a.url %}<a href="{{ a.url }}" style="color:#555;">{{ a.title }}</a>{% else %}{{ a.title }}{% endif %}
-      </li>
-    {% endfor %}
-    {% if articles|length > 5 %}
-      <li style="font-size:12px; color:#999;">... and {{ articles|length - 5 }} more</li>
-    {% endif %}
-    </ul>
-  </div>
+    <strong>{{ pub_name }}</strong>: {{ articles|length }} article{{ 's' if articles|length != 1 }}{% if not loop.last %} · {% endif %}
   {% endfor %}
+  </div>
   {% endif %}
 </div>
 {% endif %}
@@ -298,14 +288,19 @@
 {% if tiktok_items %}
 <div class="section">
   <h2>TikTok Signals</h2>
-  <p style="font-size:12px; color:#999; margin-top:0;">Best-effort data — TikTok collection may be intermittent.</p>
+  <p style="font-size:12px; color:#999; margin-top:0;">Viral dining trends from TikTok and articles about TikTok food content.</p>
   {% for item in tiktok_items[:5] %}
   <div class="trend-item">
     <div class="title">
       {% if item.url %}<a href="{{ item.url }}">{{ item.title[:100] }}</a>{% else %}{{ item.title[:100] }}{% endif %}
     </div>
     <div class="meta">
-      {{ item.metadata.get('views', 0)|default(0) }} views · {{ item.metadata.get('likes', 0)|default(0) }} likes
+      {% if item.metadata.get('method') == 'direct_api' %}
+        {{ item.metadata.get('views', 0)|default(0) }} views · {{ item.metadata.get('likes', 0)|default(0) }} likes · {{ item.metadata.get('shares', 0)|default(0) }} shares
+      {% else %}
+        via {{ item.metadata.get('method', 'google news')|replace('_', ' ') }}
+        {% if item.metadata.get('keyword') %} · keyword: {{ item.metadata.get('keyword') }}{% endif %}
+      {% endif %}
     </div>
   </div>
   {% endfor %}

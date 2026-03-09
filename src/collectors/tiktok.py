@@ -19,12 +19,14 @@ from __future__ import annotations
 
 import logging
 import math
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timedelta, timezone
 from time import mktime
 from urllib.parse import quote_plus
 
 import feedparser
 import requests
+from bs4 import BeautifulSoup
 
 from src.collectors.base import BaseCollector, City, Source, TrendItem
 
@@ -40,8 +42,8 @@ try:
 except ImportError:
     _HAS_TIKTOK_API = False
 
-# Google News RSS — same free endpoint used by news_rss.py
-_GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+# Google News RSS — "when:7d" restricts to past 7 days
+_GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q={query}+when:7d&hl=en-US&gl=US&ceid=US:en"
 
 # City display names
 _CITY_LABELS: dict[City, str] = {
@@ -57,6 +59,44 @@ _GOOGLE_TIKTOK_QUERIES: list[str] = [
     "tiktok viral restaurant {city}",
     "tiktok food trend {city}",
 ]
+
+# Maximum age for items (days)
+_MAX_AGE_DAYS = 7
+
+
+def _strip_html(text: str) -> str:
+    """Strip HTML tags and decode entities from a string."""
+    if not text:
+        return text
+    soup = BeautifulSoup(text, "html.parser")
+    clean = soup.get_text(separator=" ")
+    return re.sub(r"\s+", " ", clean).strip()
+
+
+def _resolve_google_news_url(google_url: str) -> str:
+    """Try to resolve a Google News redirect URL to the actual article URL."""
+    if not google_url or "news.google.com" not in google_url:
+        return google_url
+    try:
+        resp = requests.head(
+            google_url,
+            allow_redirects=True,
+            timeout=5,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if resp.url and "news.google.com" not in resp.url:
+            return resp.url
+    except Exception:
+        pass
+    return google_url
+
+
+def _is_recent(pub_date: datetime | None, max_days: int = _MAX_AGE_DAYS) -> bool:
+    """Return True if the item was published within the last max_days days."""
+    if pub_date is None:
+        return True
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=max_days)
+    return pub_date >= cutoff
 
 
 class TikTokCollector(BaseCollector):
@@ -114,6 +154,9 @@ class TikTokCollector(BaseCollector):
                 try:
                     results = self._search_tiktok_api(query, max_results, ms_token)
                     for r in results:
+                        pub_date = r.get("published")
+                        if not _is_recent(pub_date):
+                            continue
                         items.append(
                             TrendItem(
                                 title=r.get("title", query),
@@ -121,7 +164,7 @@ class TikTokCollector(BaseCollector):
                                 city=city,
                                 url=r.get("url"),
                                 summary=r.get("description", "")[:500],
-                                published=r.get("published"),
+                                published=pub_date,
                                 raw_score=r.get("score", 0),
                                 category=kw,
                                 metadata={
@@ -254,16 +297,21 @@ class TikTokCollector(BaseCollector):
                     try:
                         feed = feedparser.parse(url)
                         for entry in feed.entries[:max_per_query]:
-                            title = entry.get("title", "")
-                            summary = entry.get("summary", "")[:500]
                             pub_date = _parse_date(entry)
+                            if not _is_recent(pub_date):
+                                continue
+
+                            title = _strip_html(entry.get("title", ""))
+                            summary = _strip_html(entry.get("summary", ""))[:500]
+                            raw_url = entry.get("link", "")
+                            resolved_url = _resolve_google_news_url(raw_url)
 
                             items.append(
                                 TrendItem(
                                     title=title,
                                     source=Source.TIKTOK,
                                     city=city,
-                                    url=entry.get("link"),
+                                    url=resolved_url,
                                     summary=summary,
                                     published=pub_date,
                                     raw_score=_google_tiktok_score(title, summary),

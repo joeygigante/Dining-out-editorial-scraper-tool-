@@ -1,12 +1,13 @@
 """Competitor gap analysis.
 
 Compares what competitor publications (Eater, Westword, 5280, D Magazine,
-Houstonia, Atlanta Magazine) covered this week against DiningOut's coverage
-to surface stories DiningOut hasn't written yet.
+Houstonia, Atlanta Magazine, The Infatuation) covered this week against
+DiningOut's coverage to surface stories DiningOut hasn't written yet.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from collections import defaultdict
@@ -24,6 +25,7 @@ COMPETITORS = {
     "houstonia",
     "atlanta magazine",
     "bon appetit",
+    "infatuation",
 }
 
 
@@ -49,13 +51,7 @@ def analyze_competitor_gaps(items: list[dict]) -> list[dict]:
     other_items = []
 
     for item in items:
-        metadata = item.get("metadata_json", "{}")
-        if isinstance(metadata, str):
-            import json
-            try:
-                metadata = json.loads(metadata)
-            except (json.JSONDecodeError, TypeError):
-                metadata = {}
+        metadata = _get_metadata(item)
 
         feed_name = metadata.get("feed_name", "").lower()
         is_competitor = metadata.get("is_competitor", False)
@@ -127,13 +123,7 @@ def _find_gaps(competitor_items: list[dict], other_items: list[dict]) -> list[di
             gap_score = 1.0
             similar = []
 
-        metadata = item.get("metadata_json", "{}")
-        if isinstance(metadata, str):
-            import json
-            try:
-                metadata = json.loads(metadata)
-            except (json.JSONDecodeError, TypeError):
-                metadata = {}
+        metadata = _get_metadata(item)
 
         gaps.append(
             {
@@ -169,13 +159,7 @@ def summarize_competitor_activity(items: list[dict]) -> dict[str, list[dict]]:
     by_competitor: dict[str, list[dict]] = defaultdict(list)
 
     for item in items:
-        metadata = item.get("metadata_json", "{}")
-        if isinstance(metadata, str):
-            import json
-            try:
-                metadata = json.loads(metadata)
-            except (json.JSONDecodeError, TypeError):
-                metadata = {}
+        metadata = _get_metadata(item)
 
         feed_name = metadata.get("feed_name", "")
         is_competitor = metadata.get("is_competitor", False)
@@ -193,3 +177,16 @@ def summarize_competitor_activity(items: list[dict]) -> dict[str, list[dict]]:
         )
 
     return dict(by_competitor)
+
+
+def _get_metadata(item: dict) -> dict:
+    """Get parsed metadata from an item, handling both pre-parsed and raw JSON."""
+    if "metadata" in item and isinstance(item["metadata"], dict):
+        return item["metadata"]
+    raw = item.get("metadata_json", "{}")
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return {}
+    return {}
