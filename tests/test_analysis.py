@@ -115,7 +115,7 @@ class TestStoryIdeas:
             {
                 "cluster_id": 0,
                 "label": "fried chicken trends",
-                "items": [_make_item(1, "Fried chicken")],
+                "items": [_make_item(1, "Fried chicken spots in Denver", city="denver")],
                 "top_score": 75,
                 "cities": ["denver"],
                 "sources": ["google_trends"],

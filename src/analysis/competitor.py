@@ -15,7 +15,15 @@ from collections import defaultdict
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from src.collectors.base import mentions_target_city
+
 logger = logging.getLogger(__name__)
+
+# Feed names that are inherently about one of our target cities
+_CITY_SPECIFIC_FEEDS = {
+    "denver", "houston", "dallas", "atlanta",
+    "westword", "5280", "d magazine", "houstonia", "atlanta magazine",
+}
 
 COMPETITORS = {
     "eater",
@@ -139,6 +147,18 @@ def _find_gaps(competitor_items: list[dict], other_items: list[dict]) -> list[di
 
     # Only return real gaps (not covered elsewhere)
     gaps = [g for g in gaps if g["gap_score"] >= 0.5]
+
+    # Filter out gaps about cities/regions we don't cover.
+    # Keep gaps that either mention a target city in their text,
+    # or come from a city-specific feed (e.g. "Eater Denver").
+    def _is_relevant_gap(gap: dict) -> bool:
+        text = f"{gap['title']} {gap['summary']}"
+        if mentions_target_city(text):
+            return True
+        comp = gap["competitor"].lower()
+        return any(cf in comp for cf in _CITY_SPECIFIC_FEEDS)
+
+    gaps = [g for g in gaps if _is_relevant_gap(g)]
     gaps.sort(key=lambda x: x["gap_score"], reverse=True)
 
     return gaps

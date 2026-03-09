@@ -72,6 +72,34 @@ def is_chain_article(title: str) -> bool:
     return any(chain in t for chain in CHAIN_RESTAURANTS)
 
 
+# ---------------------------------------------------------------------------
+# Target city relevance check (positive filter — replaces non-target blocklist)
+# ---------------------------------------------------------------------------
+TARGET_CITY_KEYWORDS = {
+    # Denver metro & Colorado
+    "denver", "colorado",
+    # Houston metro
+    "houston",
+    # Dallas-Fort Worth metro
+    "dallas", "fort worth", "dfw", "north texas",
+    # Atlanta metro
+    "atlanta",
+    # State-level (relevant to our markets)
+    "texas", "georgia",
+}
+
+
+def mentions_target_city(text: str) -> bool:
+    """Return True if text mentions any of our target cities/regions.
+
+    This is the primary geographic relevance filter.  Instead of trying to
+    enumerate every non-target city in the world (blocklist approach), we
+    require that articles positively mention one of our markets.
+    """
+    t = text.lower()
+    return any(kw in t for kw in TARGET_CITY_KEYWORDS)
+
+
 @dataclass
 class TrendItem:
     """A single trend signal collected from any source."""

@@ -16,7 +16,7 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from src.collectors.base import City, Source, is_chain_article
+from src.collectors.base import City, Source, is_chain_article, mentions_target_city
 
 logger = logging.getLogger(__name__)
 
@@ -327,18 +327,19 @@ def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
         if mentioned_cities:
             relevant_cities = mentioned_cities
         else:
-            # No city explicitly mentioned in text — use the item's assigned city
+            # No specific city found by _extract_cities_from_text.
+            # Only fall back to the item's assigned city if the article
+            # at least mentions a target region (e.g. "Texas", "Georgia").
+            # This prevents articles with zero geographic relevance
+            # (e.g. Japanese cheesecake from Australia) from leaking in
+            # just because the search query included a city name.
+            if not mentions_target_city(content_text):
+                continue
             item_city = top_item.get("city", "")
             if item_city in target_city_values:
                 relevant_cities = [item_city]
             else:
-                # Generic article with no city tie — skip unless very high signal
-                if len(cluster["sources"]) >= 3 and top_score >= 70:
-                    # National trend worth noting — pick first target city from cluster
-                    cluster_target = [c for c in cluster["cities"] if c in target_city_values]
-                    relevant_cities = cluster_target[:1] if cluster_target else []
-                if not relevant_cities:
-                    continue
+                continue
 
         priority = "high" if top_score >= 70 else "medium" if top_score >= 40 else "low"
         city_display = ", ".join(

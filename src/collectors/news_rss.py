@@ -11,7 +11,7 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
-from src.collectors.base import BaseCollector, City, Source, TrendItem, is_chain_article
+from src.collectors.base import BaseCollector, City, Source, TrendItem, is_chain_article, mentions_target_city
 
 # Google News RSS search template — free, no API key needed
 # "when:7d" restricts results to the past 7 days
@@ -210,6 +210,13 @@ class NewsRSSCollector(BaseCollector):
 
                         clean_summary = _strip_html(entry.get("summary", ""))
 
+                        # Cross-validate: article must actually mention a target
+                        # city/region.  Google News often returns articles that
+                        # match the keyword but not the city (e.g. "Japanese
+                        # cheesecake trend" from Australia for a Denver search).
+                        if not mentions_target_city(f"{title} {clean_summary}"):
+                            continue
+
                         # Cross-check city: if another target city is named
                         # in the title but not the search city, reassign
                         actual_city = _detect_city("", title)
@@ -274,6 +281,15 @@ class NewsRSSCollector(BaseCollector):
                     matches_keyword = any(kw in text for kw in kw_lower)
 
                     if not (matches_keyword or is_competitor):
+                        continue
+
+                    # For national feeds (Eater National, Bon Appetit, The
+                    # Infatuation), require that the article mentions one of
+                    # our target cities.  City-specific feeds (Eater Denver,
+                    # Westword, etc.) are always relevant by definition.
+                    feed_city = _detect_city(feed_name, "")
+                    is_city_specific_feed = feed_city != City.NATIONAL
+                    if not is_city_specific_feed and not mentions_target_city(text):
                         continue
 
                     entry_url = entry.get("link", "")
