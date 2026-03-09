@@ -16,7 +16,7 @@ from src.analysis.scorer import (
     generate_story_ideas,
     score_items,
 )
-from src.collectors.base import City, Source
+from src.collectors.base import City, Source, is_chain_article
 
 logger = logging.getLogger(__name__)
 
@@ -77,22 +77,15 @@ class ReportGenerator:
         # Extract event intelligence
         event_intel = self._extract_event_items(clusters)
 
-        # TikTok items (separate section) — only from our target cities
+        # TikTok items (separate section) — target cities, no chains
         target_cities = {City.DENVER.value, City.HOUSTON.value, City.DALLAS.value, City.ATLANTA.value}
         tiktok_items = [
             i for i in scored
             if i.get("source") == Source.TIKTOK.value
             and i.get("city") in target_cities
+            and not is_chain_article(i.get("title", ""))
         ]
-        # Deduplicate by URL
-        seen_tiktok_urls: set[str] = set()
-        deduped_tiktok: list[dict] = []
-        for item in tiktok_items:
-            url = item.get("url", "")
-            if url not in seen_tiktok_urls:
-                seen_tiktok_urls.add(url)
-                deduped_tiktok.append(item)
-        tiktok_items = deduped_tiktok
+        tiktok_items = self._dedup_by_url(tiktok_items)
 
         # Count unique sources
         sources = {i.get("source") for i in scored}
@@ -136,7 +129,11 @@ class ReportGenerator:
         sections = {}
 
         for city in cities:
-            city_items = [i for i in items if i.get("city") == city.value]
+            city_items = [
+                i for i in items
+                if i.get("city") == city.value
+                and not is_chain_article(i.get("title", ""))
+            ]
 
             sections[city.value.title()] = {
                 "trends": self._dedup_by_url(
@@ -157,17 +154,36 @@ class ReportGenerator:
 
     @staticmethod
     def _dedup_by_url(items: list[dict]) -> list[dict]:
-        """Remove duplicate items based on URL."""
-        seen: set[str] = set()
+        """Remove duplicates by URL and by title similarity.
+
+        Two articles about the same story from different outlets (e.g.
+        CultureMap vs AOL) have different URLs but nearly identical titles.
+        This catches both cases.
+        """
+        import re as _re
+
+        seen_urls: set[str] = set()
+        seen_titles: set[str] = set()
         result: list[dict] = []
         for item in items:
             url = item.get("url", "")
             title = item.get("title", "")
-            # Dedup by URL, or by title if URL is empty
-            key = url if url else title
-            if key and key not in seen:
-                seen.add(key)
-                result.append(item)
+
+            # Normalize title: lowercase, strip source suffix, first 8 words
+            title_norm = _re.sub(r"\s*[-–—|]\s*\S+$", "", title.lower())
+            title_norm = _re.sub(r"[^a-z0-9 ]", "", title_norm).strip()
+            title_key = " ".join(title_norm.split()[:8])
+
+            if url and url in seen_urls:
+                continue
+            if title_key and title_key in seen_titles:
+                continue
+
+            if url:
+                seen_urls.add(url)
+            if title_key:
+                seen_titles.add(title_key)
+            result.append(item)
         return result
 
     def _extract_event_items(self, clusters: list[dict]) -> list[dict]:

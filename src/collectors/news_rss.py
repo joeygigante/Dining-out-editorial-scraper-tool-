@@ -11,7 +11,7 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
-from src.collectors.base import BaseCollector, City, Source, TrendItem
+from src.collectors.base import BaseCollector, City, Source, TrendItem, is_chain_article
 
 # Google News RSS search template — free, no API key needed
 # "when:7d" restricts results to the past 7 days
@@ -52,6 +52,13 @@ _FEED_CITY_MAP: dict[str, City] = {
     "Infatuation Houston": City.HOUSTON,
     "Infatuation Dallas": City.DALLAS,
     "Infatuation Atlanta": City.ATLANTA,
+    # Geographic terms for cross-checking article titles
+    "Colorado": City.DENVER,
+    "Texas": City.DALLAS,
+    "North Texas": City.DALLAS,
+    "Fort Worth": City.DALLAS,
+    "DFW": City.DALLAS,
+    "Georgia": City.ATLANTA,
 }
 
 # Maximum age for items (days)
@@ -187,6 +194,10 @@ class NewsRSSCollector(BaseCollector):
 
                         # Skip articles clearly about cities we don't cover
                         if _is_about_non_target_city(title):
+                            continue
+
+                        # Skip chain restaurant articles (DiningOut = independent restaurants)
+                        if is_chain_article(title):
                             continue
 
                         raw_url = entry.get("link", "")

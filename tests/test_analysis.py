@@ -95,7 +95,7 @@ class TestStoryIdeas:
             {
                 "cluster_id": 0,
                 "label": "tacos birria denver",
-                "items": [_make_item(1, "Tacos")],
+                "items": [_make_item(1, "Best Tacos in Denver", city="denver")],
                 "top_score": 85,
                 "cities": ["denver"],
                 "sources": ["google_news", "reddit"],
@@ -103,7 +103,12 @@ class TestStoryIdeas:
         ]
         ideas = generate_story_ideas(clusters, {})
         assert len(ideas) > 0
-        assert any("Best" in i["headline"] for i in ideas)
+        # Headline should be the full item title (not truncated)
+        assert any("Best Tacos in Denver" in i["headline"] for i in ideas)
+        # Should include a URL for click-through context
+        assert all(i.get("url") for i in ideas)
+        # Cities should be derived from content, not cluster-wide
+        assert all("denver" in i["cities"] for i in ideas)
 
     def test_event_intel_ideas(self):
         clusters = [

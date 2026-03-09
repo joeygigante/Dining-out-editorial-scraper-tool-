@@ -28,7 +28,7 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
-from src.collectors.base import BaseCollector, City, Source, TrendItem
+from src.collectors.base import BaseCollector, City, Source, TrendItem, is_chain_article
 
 logger = logging.getLogger(__name__)
 
@@ -333,6 +333,10 @@ class TikTokCollector(BaseCollector):
 
                             # Skip articles about non-target cities
                             if _is_about_non_target_city(title):
+                                continue
+
+                            # Skip chain restaurant articles
+                            if is_chain_article(title):
                                 continue
 
                             raw_url = entry.get("link", "")

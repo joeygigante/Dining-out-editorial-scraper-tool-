@@ -16,7 +16,7 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from src.collectors.base import City, Source
+from src.collectors.base import City, Source, is_chain_article
 
 logger = logging.getLogger(__name__)
 
@@ -228,26 +228,55 @@ _NON_TARGET_CITIES = {
     "seattle", "portland", "miami", "boston",
     "philadelphia", "phoenix", "minneapolis",
     "nashville", "detroit", "pittsburgh",
-    "australia", "london", "uk", "paris", "tokyo",
+    "australia", "sydney", "melbourne",
+    "london", "uk", "paris", "tokyo", "canada", "toronto",
+    "san antonio",
 }
 _TARGET_CITIES = {"denver", "houston", "dallas", "atlanta", "fort worth", "texas", "colorado", "georgia"}
 
+# Map geographic keywords in text → canonical city value
+_CITY_EXTRACT_MAP = {
+    "denver": "denver",
+    "colorado": "denver",
+    "houston": "houston",
+    "dallas": "dallas",
+    "fort worth": "dallas",
+    "north texas": "dallas",
+    "dfw": "dallas",
+    "atlanta": "atlanta",
+}
 
-def _headline_is_non_target(title: str) -> bool:
+
+def _headline_is_non_target(title: str, summary: str = "") -> bool:
     """Return True if headline is about a city/region we don't cover."""
-    t = title.lower()
+    t = f"{title} {summary}".lower()
     has_target = any(tc in t for tc in _TARGET_CITIES)
     if has_target:
         return False
     return any(ntc in t for ntc in _NON_TARGET_CITIES)
 
 
+def _extract_cities_from_text(text: str) -> list[str]:
+    """Extract target cities mentioned in text. Returns deduped list."""
+    t = text.lower()
+    seen: set[str] = set()
+    cities: list[str] = []
+    for keyword, city_val in _CITY_EXTRACT_MAP.items():
+        if keyword in t and city_val not in seen:
+            seen.add(city_val)
+            cities.append(city_val)
+    return cities
+
+
 def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
     """Turn trend clusters into actionable editorial story ideas.
 
-    Uses the top-scoring item's title as the headline base (not raw TF-IDF
-    labels, which produce gibberish).  Filters out items about non-target
-    cities and only surfaces clusters relevant to our markets.
+    Key design decisions:
+    - Cities are derived from the top item's content, NOT from all cluster members
+    - Chain restaurant articles are filtered out (DiningOut = independent restaurants)
+    - Non-target city content is filtered using both title and summary
+    - Each idea includes a URL so editors can click through for context
+    - Titles are NOT truncated so editors see the full headline
     """
     ideas = []
     target_city_values = {"denver", "houston", "dallas", "atlanta"}
@@ -260,37 +289,56 @@ def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
 
     for cluster in clusters:
         label = cluster["label"].lower()
-        cities = cluster["cities"]
         top_score = cluster["top_score"]
 
         if top_score < 20:
             continue
 
-        # Only include clusters that touch at least one target city
-        has_target_city = any(c in target_city_values for c in cities)
-        if not has_target_city:
-            continue
-
-        # Find the best item that's actually about our target cities
+        # Find the best item that passes all relevance filters
         top_item = None
         for item in cluster["items"]:
             title = item.get("title", "")
-            if not _headline_is_non_target(title):
-                top_item = item
-                break
+            summary = item.get("summary", "")
+            if _headline_is_non_target(title, summary):
+                continue
+            if is_chain_article(title):
+                continue
+            top_item = item
+            break
         if top_item is None:
             continue
 
-        top_title = top_item.get("title", cluster["label"])[:80]
+        top_title = top_item.get("title", cluster["label"])
+        top_url = top_item.get("url", "")
+        top_summary = top_item.get("summary", "")
 
-        # Skip headlines clearly about non-target cities
-        if _headline_is_non_target(top_title):
+        # Double-check: skip chains and non-target content
+        if is_chain_article(top_title):
+            continue
+        if _headline_is_non_target(top_title, top_summary):
             continue
 
-        # Filter cities list to only our target cities
-        relevant_cities = [c for c in cities if c in target_city_values]
-        if not relevant_cities:
-            continue
+        # --- CITY ASSIGNMENT: derive from content, not cluster ---
+        # Check what cities are actually mentioned in the article text
+        content_text = f"{top_title} {top_summary}"
+        mentioned_cities = _extract_cities_from_text(content_text)
+        mentioned_cities = [c for c in mentioned_cities if c in target_city_values]
+
+        if mentioned_cities:
+            relevant_cities = mentioned_cities
+        else:
+            # No city explicitly mentioned in text — use the item's assigned city
+            item_city = top_item.get("city", "")
+            if item_city in target_city_values:
+                relevant_cities = [item_city]
+            else:
+                # Generic article with no city tie — skip unless very high signal
+                if len(cluster["sources"]) >= 3 and top_score >= 70:
+                    # National trend worth noting — pick first target city from cluster
+                    cluster_target = [c for c in cluster["cities"] if c in target_city_values]
+                    relevant_cities = cluster_target[:1] if cluster_target else []
+                if not relevant_cities:
+                    continue
 
         priority = "high" if top_score >= 70 else "medium" if top_score >= 40 else "low"
         city_display = ", ".join(
@@ -301,6 +349,7 @@ def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
         ideas.append(
             {
                 "headline": top_title,
+                "url": top_url,
                 "type": "trending_topic",
                 "supporting_data": (
                     f"{len(cluster['items'])} signals across "
@@ -320,6 +369,7 @@ def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
                 ideas.append(
                     {
                         "headline": f"{event_name} Intel: {top_title}",
+                        "url": top_url,
                         "type": "event_intel",
                         "supporting_data": f"Related to {event_name} — '{kw}' trending in {city_display}",
                         "cities": relevant_cities,
@@ -335,6 +385,7 @@ def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
             ideas.append(
                 {
                     "headline": f"Restaurant Openings: {top_title}",
+                    "url": top_url,
                     "type": "openings_roundup",
                     "supporting_data": f"{len(cluster['items'])} mentions across sources in {city_display}",
                     "cities": relevant_cities,
@@ -346,6 +397,7 @@ def generate_story_ideas(clusters: list[dict], config: dict) -> list[dict]:
             ideas.append(
                 {
                     "headline": f"Notable Closings: {top_title}",
+                    "url": top_url,
                     "type": "closings_roundup",
                     "supporting_data": f"{len(cluster['items'])} mentions across sources in {city_display}",
                     "cities": relevant_cities,

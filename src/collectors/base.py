@@ -47,6 +47,31 @@ CITY_SUBREDDITS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Chain restaurant brands to filter (DiningOut focuses on independent restaurants)
+# ---------------------------------------------------------------------------
+CHAIN_RESTAURANTS = {
+    "mcdonald", "burger king", "wendy's", "wendys", "taco bell",
+    "taco cabana", "chipotle", "chili's", "chilis", "olive garden",
+    "applebee", "texas roadhouse", "outback steakhouse", "longhorn steakhouse",
+    "red lobster", "cracker barrel", "denny's", "dennys", "ihop",
+    "waffle house", "buffalo wild wings", "wingstop", "popeye",
+    "chick-fil-a", "chickfila", "panda express", "five guys",
+    "shake shack", "in-n-out", "whataburger", "starbucks", "dunkin",
+    "panera", "subway", "domino's", "dominos", "pizza hut", "papa john",
+    "little caesars", "jack in the box", "sonic drive", "arby's", "arbys",
+    "raising cane", "sweetgreen", "noodles & company",
+    "cheesecake factory", "ruth's chris", "ruths chris",
+    "p.f. chang", "pf chang", "golden corral", "bob evans",
+}
+
+
+def is_chain_article(title: str) -> bool:
+    """Return True if the title is primarily about a chain restaurant."""
+    t = title.lower()
+    return any(chain in t for chain in CHAIN_RESTAURANTS)
+
+
 @dataclass
 class TrendItem:
     """A single trend signal collected from any source."""

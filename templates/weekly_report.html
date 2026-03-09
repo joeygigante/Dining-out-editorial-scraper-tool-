@@ -168,7 +168,9 @@
   <h2>Story Ideas This Week</h2>
   {% for idea in story_ideas[:10] %}
   <div class="idea-card priority-{{ idea.priority }}">
-    <div class="headline">{{ idea.headline }}</div>
+    <div class="headline">
+      {% if idea.url %}<a href="{{ idea.url }}" style="color:#2c3e50; text-decoration:none;">{{ idea.headline }}</a>{% else %}{{ idea.headline }}{% endif %}
+    </div>
     <span class="type">{{ idea.type|replace('_', ' ') }}</span>
     {% for city in idea.cities %}
     <span class="city-tag">{{ city }}</span>
@@ -228,7 +230,7 @@
     <div class="title">
       {% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}
     </div>
-    <div class="summary">{{ item.summary }}</div>
+    {% if item.summary and item.summary[:60]|lower != item.title[:60]|lower %}<div class="summary">{{ item.summary[:200] }}</div>{% endif %}
   </div>
   {% endfor %}
   {% endif %}
@@ -255,11 +257,10 @@
 {% endif %}
 
 <!-- Competitor Watch -->
-{% if competitor_gaps or competitor_activity %}
+{% if competitor_gaps %}
 <div class="section">
   <h2>Competitor Watch</h2>
 
-  {% if competitor_gaps %}
   <p style="font-size:13px; color:#666; margin-top:0;">Stories competitors covered this week that we haven't — potential coverage gaps.</p>
   {% for gap in competitor_gaps[:8] %}
   <div class="gap-item">
@@ -271,16 +272,7 @@
     {% if gap.summary %}<div class="summary">{{ gap.summary[:200] }}</div>{% endif %}
   </div>
   {% endfor %}
-  {% endif %}
 
-  {% if competitor_activity %}
-  <h3 style="font-size:14px; color:#666; margin:16px 0 6px;">Competitor Volume This Week</h3>
-  <div style="font-size:13px; color:#555;">
-  {% for pub_name, articles in competitor_activity.items() %}
-    <strong>{{ pub_name }}</strong>: {{ articles|length }} article{{ 's' if articles|length != 1 }}{% if not loop.last %} · {% endif %}
-  {% endfor %}
-  </div>
-  {% endif %}
 </div>
 {% endif %}
 
