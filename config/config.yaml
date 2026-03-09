@@ -70,9 +70,10 @@ google_news_max_results: 10
 # Google Trends
 # -------------------------------------------------------------------
 google_trends_timeframe: "now 7-d"
-google_trends_delay: 2         # seconds between API calls
+google_trends_delay: 5         # seconds between API calls (with ±30% jitter)
 google_trends_timeout: [10, 30]
-google_trends_retries: 3
+google_trends_retries: 3       # retries within pytrends itself
+google_trends_max_retries: 3   # exponential backoff retries per batch
 
 # -------------------------------------------------------------------
 # Reddit
