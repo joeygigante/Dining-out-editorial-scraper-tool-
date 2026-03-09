@@ -6,6 +6,7 @@ combines source-specific signals into a final composite score.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from collections import defaultdict
@@ -44,6 +45,14 @@ def score_items(items: list[dict], config: dict) -> list[dict]:
     """
     if not items:
         return items
+
+    # Parse metadata_json into a usable dict for templates and downstream code
+    for item in items:
+        if "metadata" not in item and "metadata_json" in item:
+            try:
+                item["metadata"] = json.loads(item["metadata_json"] or "{}")
+            except (json.JSONDecodeError, TypeError):
+                item["metadata"] = {}
 
     # Step 1: TF-IDF relevance
     tfidf_scores = _compute_tfidf_scores(items, config)

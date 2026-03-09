@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -58,7 +58,7 @@ class TrendItem:
     summary: Optional[str] = None
     category: Optional[str] = None  # e.g. "tacos", "openings", "chef"
     published: Optional[datetime] = None
-    collected_at: datetime = field(default_factory=datetime.utcnow)
+    collected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     raw_score: float = 0.0  # Source-specific relevance signal
     metadata: dict = field(default_factory=dict)
 

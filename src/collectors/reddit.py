@@ -125,26 +125,33 @@ class RedditCollector(BaseCollector):
         return items
 
     def _fetch_json(self, sub_name: str, limit: int) -> list[dict]:
-        """Fetch hot posts from a subreddit using the public .json endpoint."""
-        url = f"https://www.reddit.com/r/{sub_name}/hot.json"
+        """Fetch hot posts from a subreddit using the public .json endpoint.
+
+        Tries old.reddit.com first (less aggressive bot blocking on cloud IPs),
+        then falls back to www.reddit.com.
+        """
         params = {"limit": min(limit, 100), "raw_json": 1}
         timeout = self.config.get("reddit_timeout", 15)
         delay = self.config.get("reddit_delay", 1.0)
+        headers = {"User-Agent": _USER_AGENT}
 
-        resp = requests.get(
-            url,
-            params=params,
-            headers={"User-Agent": _USER_AGENT},
-            timeout=timeout,
-        )
-        resp.raise_for_status()
+        for base in ("https://old.reddit.com", "https://www.reddit.com"):
+            url = f"{base}/r/{sub_name}/hot.json"
+            try:
+                resp = requests.get(url, params=params, headers=headers, timeout=timeout)
+                resp.raise_for_status()
+                time.sleep(delay)
+                data = resp.json()
+                return data.get("data", {}).get("children", [])
+            except requests.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code == 403:
+                    self.logger.debug("403 from %s for r/%s, trying next", base, sub_name)
+                    continue
+                raise
 
-        # Be polite — wait between requests
-        time.sleep(delay)
-
-        data = resp.json()
-        children = data.get("data", {}).get("children", [])
-        return children
+        # Both bases returned 403
+        self.logger.warning("Reddit blocked all endpoints for r/%s", sub_name)
+        return []
 
     def health_check(self) -> bool:
         try:
