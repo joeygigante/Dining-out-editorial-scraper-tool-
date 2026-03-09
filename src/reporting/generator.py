@@ -77,8 +77,22 @@ class ReportGenerator:
         # Extract event intelligence
         event_intel = self._extract_event_items(clusters)
 
-        # TikTok items (separate section)
-        tiktok_items = [i for i in scored if i.get("source") == Source.TIKTOK.value]
+        # TikTok items (separate section) — only from our target cities
+        target_cities = {City.DENVER.value, City.HOUSTON.value, City.DALLAS.value, City.ATLANTA.value}
+        tiktok_items = [
+            i for i in scored
+            if i.get("source") == Source.TIKTOK.value
+            and i.get("city") in target_cities
+        ]
+        # Deduplicate by URL
+        seen_tiktok_urls: set[str] = set()
+        deduped_tiktok: list[dict] = []
+        for item in tiktok_items:
+            url = item.get("url", "")
+            if url not in seen_tiktok_urls:
+                seen_tiktok_urls.add(url)
+                deduped_tiktok.append(item)
+        tiktok_items = deduped_tiktok
 
         # Count unique sources
         sources = {i.get("source") for i in scored}
@@ -117,7 +131,7 @@ class ReportGenerator:
         return html
 
     def _build_city_sections(self, items: list[dict]) -> dict:
-        """Organize scored items into city-first sections."""
+        """Organize scored items into city-first sections with dedup."""
         cities = [City.DENVER, City.HOUSTON, City.DALLAS, City.ATLANTA]
         sections = {}
 
@@ -125,17 +139,36 @@ class ReportGenerator:
             city_items = [i for i in items if i.get("city") == city.value]
 
             sections[city.value.title()] = {
-                "trends": [i for i in city_items if i.get("source") == Source.GOOGLE_TRENDS.value],
-                "news": [
-                    i
-                    for i in city_items
-                    if i.get("source") in (Source.GOOGLE_NEWS.value, Source.RSS_FEED.value)
-                ],
-                "reddit": [i for i in city_items if i.get("source") == Source.REDDIT.value],
-                "tiktok": [i for i in city_items if i.get("source") == Source.TIKTOK.value],
+                "trends": self._dedup_by_url(
+                    [i for i in city_items if i.get("source") == Source.GOOGLE_TRENDS.value]
+                ),
+                "news": self._dedup_by_url(
+                    [i for i in city_items if i.get("source") in (Source.GOOGLE_NEWS.value, Source.RSS_FEED.value)]
+                ),
+                "reddit": self._dedup_by_url(
+                    [i for i in city_items if i.get("source") == Source.REDDIT.value]
+                ),
+                "tiktok": self._dedup_by_url(
+                    [i for i in city_items if i.get("source") == Source.TIKTOK.value]
+                ),
             }
 
         return sections
+
+    @staticmethod
+    def _dedup_by_url(items: list[dict]) -> list[dict]:
+        """Remove duplicate items based on URL."""
+        seen: set[str] = set()
+        result: list[dict] = []
+        for item in items:
+            url = item.get("url", "")
+            title = item.get("title", "")
+            # Dedup by URL, or by title if URL is empty
+            key = url if url else title
+            if key and key not in seen:
+                seen.add(key)
+                result.append(item)
+        return result
 
     def _extract_event_items(self, clusters: list[dict]) -> list[dict]:
         """Pull out cluster items related to DiningOut event categories."""

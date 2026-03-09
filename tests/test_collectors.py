@@ -53,13 +53,14 @@ class TestNewsRSSCollector:
 
     @patch("src.collectors.news_rss.feedparser.parse")
     def test_collect_returns_items(self, mock_parse):
+        import time
         mock_entry = MagicMock()
         mock_entry.get.side_effect = lambda k, d="": {
             "title": "Denver restaurant opens",
             "link": "https://example.com",
             "summary": "A new restaurant in Denver",
         }.get(k, d)
-        mock_entry.published_parsed = None
+        mock_entry.published_parsed = time.gmtime()  # Current time = recent
         mock_entry.updated_parsed = None
 
         mock_feed = MagicMock()
@@ -230,13 +231,14 @@ class TestTikTokCollector:
 
     @patch("src.collectors.tiktok.feedparser.parse")
     def test_google_tiktok_returns_items(self, mock_parse):
+        import time
         mock_entry = MagicMock()
         mock_entry.get.side_effect = lambda k, d="": {
             "title": "Denver restaurant goes viral on TikTok",
             "link": "https://example.com/article",
             "summary": "A taco spot in Denver blew up on TikTok this week",
         }.get(k, d)
-        mock_entry.published_parsed = None
+        mock_entry.published_parsed = time.gmtime()  # Current time = recent
         mock_entry.updated_parsed = None
 
         mock_feed = MagicMock()

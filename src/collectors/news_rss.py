@@ -58,6 +58,18 @@ _FEED_CITY_MAP: dict[str, City] = {
 _MAX_AGE_DAYS = 7
 
 
+# Major cities NOT in our target list — if an article title mentions these
+# but NOT one of our cities, it's probably not relevant.
+_NON_TARGET_CITIES = {
+    "new york", "nyc", "brooklyn", "manhattan",
+    "los angeles", "la", "chicago", "san francisco",
+    "seattle", "portland", "miami", "boston",
+    "philadelphia", "phoenix", "minneapolis",
+    "nashville", "detroit", "pittsburgh",
+    "australia", "london", "uk", "paris", "tokyo",
+}
+
+
 def _detect_city(feed_name: str, title: str) -> City:
     """Guess which city a feed entry belongs to."""
     text = f"{feed_name} {title}".lower()
@@ -65,6 +77,18 @@ def _detect_city(feed_name: str, title: str) -> City:
         if label.lower() in text:
             return city
     return City.NATIONAL
+
+
+def _is_about_non_target_city(title: str) -> bool:
+    """Return True if the title is clearly about a city we don't cover."""
+    title_lower = title.lower()
+    # Check if any target city is mentioned
+    target_cities = {"denver", "houston", "dallas", "atlanta", "fort worth", "texas", "colorado", "georgia"}
+    has_target = any(tc in title_lower for tc in target_cities)
+    if has_target:
+        return False
+    # Check if a non-target city is mentioned
+    return any(ntc in title_lower for ntc in _NON_TARGET_CITIES)
 
 
 def _parse_date(entry) -> datetime | None:
@@ -78,7 +102,7 @@ def _parse_date(entry) -> datetime | None:
 def _is_recent(pub_date: datetime | None, max_days: int = _MAX_AGE_DAYS) -> bool:
     """Return True if the item was published within the last max_days days."""
     if pub_date is None:
-        return True  # Keep items with unknown dates rather than silently dropping
+        return False  # Reject undated items — we only want fresh content
     cutoff = datetime.now(tz=timezone.utc) - timedelta(days=max_days)
     return pub_date >= cutoff
 
@@ -136,6 +160,7 @@ class NewsRSSCollector(BaseCollector):
 
     def _collect_google_news(self, keywords: list[str], cities: list[City]) -> list[TrendItem]:
         items: list[TrendItem] = []
+        seen_urls: set[str] = set()
         city_names = {
             City.DENVER: "Denver",
             City.HOUSTON: "Houston",
@@ -158,15 +183,35 @@ class NewsRSSCollector(BaseCollector):
                         if not _is_recent(pub_date):
                             continue
 
+                        title = _strip_html(entry.get("title", ""))
+
+                        # Skip articles clearly about cities we don't cover
+                        if _is_about_non_target_city(title):
+                            continue
+
                         raw_url = entry.get("link", "")
                         resolved_url = _resolve_google_news_url(raw_url)
+
+                        # Deduplicate by URL
+                        if resolved_url in seen_urls:
+                            continue
+                        seen_urls.add(resolved_url)
+
                         clean_summary = _strip_html(entry.get("summary", ""))
+
+                        # Cross-check city: if another target city is named
+                        # in the title but not the search city, reassign
+                        actual_city = _detect_city("", title)
+                        if actual_city != City.NATIONAL:
+                            assigned_city = actual_city
+                        else:
+                            assigned_city = city
 
                         items.append(
                             TrendItem(
-                                title=_strip_html(entry.get("title", "")),
+                                title=title,
                                 source=Source.GOOGLE_NEWS,
-                                city=city,
+                                city=assigned_city,
                                 url=resolved_url,
                                 summary=clean_summary[:500],
                                 published=pub_date,
@@ -185,6 +230,7 @@ class NewsRSSCollector(BaseCollector):
     def _collect_publication_feeds(self, keywords: list[str]) -> list[TrendItem]:
         feeds: dict[str, str] = self.config.get("rss_feeds", DEFAULT_FEEDS)
         items: list[TrendItem] = []
+        seen_urls: set[str] = set()
 
         kw_lower = [k.lower() for k in keywords]
 
@@ -219,12 +265,17 @@ class NewsRSSCollector(BaseCollector):
                     if not (matches_keyword or is_competitor):
                         continue
 
+                    entry_url = entry.get("link", "")
+                    if entry_url in seen_urls:
+                        continue
+                    seen_urls.add(entry_url)
+
                     items.append(
                         TrendItem(
                             title=title,
                             source=Source.RSS_FEED,
                             city=_detect_city(feed_name, title),
-                            url=entry.get("link"),
+                            url=entry_url,
                             summary=clean_summary,
                             published=pub_date,
                             raw_score=1.5 if matches_keyword else 0.5,

@@ -203,7 +203,7 @@
     <div class="title">
       {% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}
     </div>
-    {% if item.summary %}<div class="summary">{{ item.summary[:200] }}</div>{% endif %}
+    {% if item.summary and item.summary[:60]|lower != item.title[:60]|lower %}<div class="summary">{{ item.summary[:200] }}</div>{% endif %}
   </div>
   {% endfor %}
   {% endif %}

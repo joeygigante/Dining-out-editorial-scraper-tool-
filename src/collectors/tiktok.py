@@ -94,9 +94,30 @@ def _resolve_google_news_url(google_url: str) -> str:
 def _is_recent(pub_date: datetime | None, max_days: int = _MAX_AGE_DAYS) -> bool:
     """Return True if the item was published within the last max_days days."""
     if pub_date is None:
-        return True
+        return False  # Reject undated items
     cutoff = datetime.now(tz=timezone.utc) - timedelta(days=max_days)
     return pub_date >= cutoff
+
+
+# Major cities NOT in our target list
+_NON_TARGET_CITIES = {
+    "new york", "nyc", "brooklyn", "manhattan",
+    "los angeles", "la", "chicago", "san francisco",
+    "seattle", "portland", "miami", "boston",
+    "philadelphia", "phoenix", "minneapolis",
+    "nashville", "detroit", "pittsburgh",
+    "australia", "london", "uk", "paris", "tokyo",
+}
+
+
+def _is_about_non_target_city(title: str) -> bool:
+    """Return True if the title is clearly about a city we don't cover."""
+    title_lower = title.lower()
+    target_cities = {"denver", "houston", "dallas", "atlanta", "fort worth", "texas", "colorado", "georgia"}
+    has_target = any(tc in title_lower for tc in target_cities)
+    if has_target:
+        return False
+    return any(ntc in title_lower for ntc in _NON_TARGET_CITIES)
 
 
 class TikTokCollector(BaseCollector):
@@ -273,6 +294,7 @@ class TikTokCollector(BaseCollector):
         - "The TikTok fried chicken trend hits Atlanta"
         """
         items: list[TrendItem] = []
+        seen_urls: set[str] = set()
         max_per_query = self.config.get("tiktok_google_max_results", 5)
 
         # Build search queries: combine templates x cities x keywords
@@ -303,8 +325,23 @@ class TikTokCollector(BaseCollector):
 
                             title = _strip_html(entry.get("title", ""))
                             summary = _strip_html(entry.get("summary", ""))[:500]
+
+                            # Must actually mention TikTok to be relevant
+                            combined = f"{title} {summary}".lower()
+                            if "tiktok" not in combined and "tik tok" not in combined:
+                                continue
+
+                            # Skip articles about non-target cities
+                            if _is_about_non_target_city(title):
+                                continue
+
                             raw_url = entry.get("link", "")
                             resolved_url = _resolve_google_news_url(raw_url)
+
+                            # Deduplicate
+                            if resolved_url in seen_urls:
+                                continue
+                            seen_urls.add(resolved_url)
 
                             items.append(
                                 TrendItem(
