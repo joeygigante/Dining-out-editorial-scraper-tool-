@@ -51,15 +51,16 @@ class GoogleTrendsCollector(BaseCollector):
 
             for batch in batches:
                 batch_items = self._fetch_batch_with_backoff(batch, geo, city, timeframe)
-                if batch_items is not None:
+                if batch_items is not None and len(batch_items) > 0:
                     items.extend(batch_items)
                     pytrends_failed_all = False
 
                 # Be polite — Google rate-limits aggressively
                 delay = self.config.get("google_trends_delay", 5)
-                # Add jitter: ±30% randomization to avoid lockstep patterns
-                jitter = delay * 0.3 * (2 * random.random() - 1)
-                time.sleep(max(1, delay + jitter))
+                if delay > 0:
+                    # Add jitter: ±30% randomization to avoid lockstep patterns
+                    jitter = delay * 0.3 * (2 * random.random() - 1)
+                    time.sleep(max(1, delay + jitter))
 
         # Also fetch related queries for top keywords
         top_keywords = keywords[:5]
@@ -67,8 +68,9 @@ class GoogleTrendsCollector(BaseCollector):
             geo = CITY_GEO_CODES.get(city, "US")
             try:
                 related = self._fetch_related_queries(top_keywords, geo, city)
-                items.extend(related)
-                pytrends_failed_all = False
+                if related:
+                    items.extend(related)
+                    pytrends_failed_all = False
             except (Exception, SystemExit):
                 self.logger.exception("Related queries failed for %s", city.value)
 
