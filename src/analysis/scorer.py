@@ -88,44 +88,58 @@ def cluster_items(items: list[dict], config: dict) -> list[dict]:
         ...
     ]
     """
-    if len(items) < 3:
-        # Not enough items to cluster meaningfully
+    def _single_cluster(items_list):
+        """Fallback: put all items in one cluster."""
+        items_list.sort(key=lambda x: x.get("final_score", 0), reverse=True)
         return [
             {
                 "cluster_id": 0,
-                "label": items[0]["title"][:60] if items else "No data",
-                "items": items,
-                "top_score": items[0].get("final_score", 0) if items else 0,
-                "cities": list({i["city"] for i in items}),
-                "sources": list({i["source"] for i in items}),
+                "label": items_list[0]["title"][:60] if items_list else "No data",
+                "items": items_list,
+                "top_score": items_list[0].get("final_score", 0) if items_list else 0,
+                "cities": list({i["city"] for i in items_list}),
+                "sources": list({i["source"] for i in items_list}),
             }
         ]
 
+    if len(items) < 3:
+        return _single_cluster(items)
+
     texts = [f"{i.get('title', '')} {i.get('summary', '')}" for i in items]
 
-    vectorizer = TfidfVectorizer(
-        max_features=500,
-        stop_words="english",
-        min_df=1,
-        max_df=0.95,
-    )
-    tfidf_matrix = vectorizer.fit_transform(texts)
+    try:
+        vectorizer = TfidfVectorizer(
+            max_features=500,
+            stop_words="english",
+            min_df=1,
+            max_df=0.95,
+        )
+        tfidf_matrix = vectorizer.fit_transform(texts)
 
-    # Determine number of clusters dynamically
-    n_items = len(items)
-    n_clusters = max(2, min(n_items // 3, config.get("max_clusters", 15)))
+        if tfidf_matrix.shape[1] == 0:
+            logger.warning("TF-IDF produced empty vocabulary — skipping clustering")
+            return _single_cluster(items)
 
-    similarity = cosine_similarity(tfidf_matrix)
-    distance = 1 - similarity
-    np.fill_diagonal(distance, 0)
-    distance = np.clip(distance, 0, None)
+        # Determine number of clusters dynamically
+        n_items = len(items)
+        n_clusters = max(2, min(n_items // 3, config.get("max_clusters", 15)))
 
-    clustering = AgglomerativeClustering(
-        n_clusters=n_clusters,
-        metric="precomputed",
-        linkage="average",
-    )
-    labels = clustering.fit_predict(distance)
+        similarity = cosine_similarity(tfidf_matrix)
+        distance = 1 - similarity
+        np.fill_diagonal(distance, 0)
+        distance = np.clip(distance, 0, None)
+        # Replace any NaN with 1.0 (max distance)
+        distance = np.nan_to_num(distance, nan=1.0)
+
+        clustering = AgglomerativeClustering(
+            n_clusters=n_clusters,
+            metric="precomputed",
+            linkage="average",
+        )
+        labels = clustering.fit_predict(distance)
+    except Exception:
+        logger.exception("Clustering failed — returning items as single cluster")
+        return _single_cluster(items)
 
     # Build cluster objects
     cluster_map: dict[int, list[dict]] = defaultdict(list)
@@ -135,24 +149,27 @@ def cluster_items(items: list[dict], config: dict) -> list[dict]:
     feature_names = vectorizer.get_feature_names_out()
 
     clusters = []
-    for cluster_id, cluster_items in cluster_map.items():
-        cluster_items.sort(key=lambda x: x.get("final_score", 0), reverse=True)
+    for cluster_id, cluster_items_list in cluster_map.items():
+        cluster_items_list.sort(key=lambda x: x.get("final_score", 0), reverse=True)
 
         # Generate label from top TF-IDF terms of cluster items
-        cluster_texts = [f"{i.get('title', '')} {i.get('summary', '')}" for i in cluster_items]
-        cluster_tfidf = vectorizer.transform(cluster_texts)
-        mean_vector = cluster_tfidf.mean(axis=0).A1
-        top_indices = mean_vector.argsort()[-3:][::-1]
-        label = " ".join(feature_names[i] for i in top_indices)
+        try:
+            cluster_texts = [f"{i.get('title', '')} {i.get('summary', '')}" for i in cluster_items_list]
+            cluster_tfidf = vectorizer.transform(cluster_texts)
+            mean_vector = cluster_tfidf.mean(axis=0).A1
+            top_indices = mean_vector.argsort()[-3:][::-1]
+            label = " ".join(feature_names[i] for i in top_indices)
+        except Exception:
+            label = cluster_items_list[0].get("title", "Unknown")[:60] if cluster_items_list else "Unknown"
 
         clusters.append(
             {
                 "cluster_id": cluster_id,
                 "label": label,
-                "items": cluster_items,
-                "top_score": cluster_items[0].get("final_score", 0),
-                "cities": list({i["city"] for i in cluster_items}),
-                "sources": list({i["source"] for i in cluster_items}),
+                "items": cluster_items_list,
+                "top_score": cluster_items_list[0].get("final_score", 0),
+                "cities": list({i["city"] for i in cluster_items_list}),
+                "sources": list({i["source"] for i in cluster_items_list}),
             }
         )
 

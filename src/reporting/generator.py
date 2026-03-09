@@ -34,13 +34,42 @@ class ReportGenerator:
         )
 
     def generate_weekly_report(self, items: list[dict]) -> str:
-        """Generate the full weekly HTML report."""
+        """Generate the full weekly HTML report.
+
+        Each analysis step is wrapped so a single failure doesn't prevent
+        the report from being generated and emailed.
+        """
         scored = score_items(items, self.config)
-        clusters = cluster_items(scored, self.config)
-        story_ideas = generate_story_ideas(clusters, self.config)
-        breaking = detect_breaking_news(scored)
-        gaps = analyze_competitor_gaps(scored)
-        competitor_activity = summarize_competitor_activity(scored)
+
+        clusters = []
+        try:
+            clusters = cluster_items(scored, self.config)
+        except Exception:
+            logger.exception("Clustering failed")
+
+        story_ideas = []
+        try:
+            story_ideas = generate_story_ideas(clusters, self.config)
+        except Exception:
+            logger.exception("Story idea generation failed")
+
+        breaking = []
+        try:
+            breaking = detect_breaking_news(scored)
+        except Exception:
+            logger.exception("Breaking news detection failed")
+
+        gaps = []
+        try:
+            gaps = analyze_competitor_gaps(scored)
+        except Exception:
+            logger.exception("Competitor gap analysis failed")
+
+        competitor_activity = {}
+        try:
+            competitor_activity = summarize_competitor_activity(scored)
+        except Exception:
+            logger.exception("Competitor activity summary failed")
 
         # Organize items by city
         city_sections = self._build_city_sections(scored)

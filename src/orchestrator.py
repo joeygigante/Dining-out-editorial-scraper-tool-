@@ -45,21 +45,16 @@ class Pipeline:
 
         # Step 3: Score, generate report
         db_items = self.storage.get_items_for_run(run_id)
-        html = ""
-        try:
-            html = self.generator.generate_weekly_report(db_items)
-        except Exception:
-            logger.exception("Report generation failed")
+        html = self.generator.generate_weekly_report(db_items)
+        logger.info("Report generated: %d chars HTML from %d items", len(html), len(db_items))
 
         # Step 4: Store report
-        if html:
-            self.storage.save_report(run_id, "weekly", html)
+        self.storage.save_report(run_id, "weekly", html)
 
         # Step 5: Send email
-        sent = False
-        if html:
-            subject = f"DiningOut Trends — Week of {datetime.now(tz=timezone.utc).strftime('%B %d, %Y')}"
-            sent = self.sender.send_report(html, subject)
+        subject = f"DiningOut Trends — Week of {datetime.now(tz=timezone.utc).strftime('%B %d, %Y')}"
+        sent = self.sender.send_report(html, subject)
+        logger.info("Email send result: %s", sent)
 
         # Step 6: Cleanup old data
         cleanup = self.storage.cleanup_old_data()
@@ -86,11 +81,7 @@ class Pipeline:
         saved = self.storage.save_items(items, run_id)
         db_items = self.storage.get_items_for_run(run_id)
 
-        html = None
-        try:
-            html = self.generator.generate_breaking_alert(db_items)
-        except Exception:
-            logger.exception("Breaking alert generation failed")
+        html = self.generator.generate_breaking_alert(db_items)
 
         sent = False
         if html:
