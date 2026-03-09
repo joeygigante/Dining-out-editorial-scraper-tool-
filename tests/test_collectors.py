@@ -7,7 +7,12 @@ import pytest
 from src.collectors.base import City, Source, TrendItem
 from src.collectors.news_rss import NewsRSSCollector, _detect_city
 from src.collectors.google_trends import GoogleTrendsCollector
-from src.collectors.reddit import RedditCollector, _engagement_score
+from src.collectors.reddit import (
+    RedditCollector,
+    _engagement_score,
+    _rss_score,
+    _google_reddit_score,
+)
 from src.collectors.tiktok import TikTokCollector, _virality_score, _google_tiktok_score
 
 
@@ -193,6 +198,66 @@ class TestRedditCollector:
 
     def test_engagement_score_zero(self):
         assert _engagement_score(0, 0) == 0.0
+
+    def test_rss_score_high_signals(self):
+        score = _rss_score(
+            "Best new restaurant in Denver",
+            "A hidden gem with great food",
+        )
+        # "best", "restaurant", "food", "new" all present
+        assert score >= 40.0
+
+    def test_rss_score_baseline(self):
+        score = _rss_score("Random post", "Nothing relevant")
+        # Only gets base 20 points
+        assert score == 20.0
+
+    def test_rss_score_cap(self):
+        score = _rss_score(
+            "Best favorite recommend top must try hidden gem",
+            "restaurant food chef opening new review",
+        )
+        assert score <= 100.0
+
+    def test_google_reddit_score_high(self):
+        score = _google_reddit_score(
+            "Redditors recommend the best Denver restaurants",
+            "Top food picks from Reddit",
+        )
+        assert score >= 40.0
+
+    def test_google_reddit_score_baseline(self):
+        score = _google_reddit_score("Unrelated article", "No signals")
+        assert score == 15.0
+
+    @patch("src.collectors.reddit.feedparser.parse")
+    def test_google_reddit_returns_items(self, mock_parse):
+        import time
+        mock_entry = MagicMock()
+        mock_entry.get.side_effect = lambda k, d="": {
+            "title": "Best Denver restaurants according to Reddit",
+            "link": "https://example.com/article",
+            "summary": "Reddit users share their favorite Denver food spots",
+        }.get(k, d)
+        mock_entry.published_parsed = time.gmtime()
+        mock_entry.updated_parsed = None
+
+        mock_feed = MagicMock()
+        mock_feed.entries = [mock_entry]
+        mock_parse.return_value = mock_feed
+
+        collector = RedditCollector({"reddit_google_max_results": 5})
+        # Call the Google-for-Reddit method directly
+        items = collector._collect_google_reddit(["tacos"], [City.DENVER])
+        assert len(items) > 0
+        assert all(i.metadata.get("method") == "google_news" for i in items)
+
+    @patch("src.collectors.reddit.feedparser.parse")
+    def test_google_reddit_handles_error(self, mock_parse):
+        mock_parse.side_effect = Exception("Network error")
+        collector = RedditCollector({"reddit_google_max_results": 5})
+        items = collector._collect_google_reddit(["tacos"], [City.DENVER])
+        assert isinstance(items, list)
 
 
 class TestTikTokCollector:
