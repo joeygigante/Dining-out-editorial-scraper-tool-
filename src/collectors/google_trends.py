@@ -7,6 +7,7 @@ Falls back to the Google Trends Daily Trends RSS feed when pytrends is blocked.
 from __future__ import annotations
 
 import random
+import re
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -26,6 +27,18 @@ from src.collectors.base import (
 
 # Google Trends Daily Trends RSS URL (public, no auth required)
 _DAILY_TRENDS_RSS = "https://trends.google.com/trending/rss?geo={geo_country}"
+
+
+def _has_word_match(text: str, signals: set[str]) -> bool:
+    """Check if any signal appears as a whole word in text.
+
+    Uses word-boundary regex to avoid false positives like
+    "bar" matching inside "barreda".
+    """
+    for signal in signals:
+        if re.search(rf"\b{re.escape(signal)}\b", text):
+            return True
+    return False
 
 
 class GoogleTrendsCollector(BaseCollector):
@@ -245,6 +258,8 @@ class GoogleTrendsCollector(BaseCollector):
 
                 # Check if this trending topic is food/dining related
                 # Match against our keywords OR common dining terms
+                # Use word-boundary matching to avoid false positives
+                # (e.g. "bar" matching inside "barreda")
                 dining_signals = {
                     "restaurant", "food", "chef", "dining", "eat",
                     "menu", "cook", "recipe", "kitchen", "bar",
@@ -252,7 +267,7 @@ class GoogleTrendsCollector(BaseCollector):
                 }
                 all_signals = keyword_set | dining_signals
 
-                matched = any(signal in title_lower for signal in all_signals)
+                matched = _has_word_match(title_lower, all_signals)
                 if not matched:
                     # Also check the news items within the trend
                     news_titles = [
@@ -260,9 +275,8 @@ class GoogleTrendsCollector(BaseCollector):
                         for n in item_el.findall("ht:news_item", ns)
                     ]
                     matched = any(
-                        signal in nt
+                        _has_word_match(nt, all_signals)
                         for nt in news_titles
-                        for signal in all_signals
                     )
 
                 if matched:
