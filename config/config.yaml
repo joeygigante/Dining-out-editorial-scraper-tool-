@@ -121,6 +121,11 @@ email_method: smtp
 email_from: "joey@giantedgemarketing.com"
 email_recipients:
   - jgigante@diningout.com
+  - jdinar@diningout.com
+  - spouw@diningout.com
+  - lcovington@diningout.com
+  - mmcswain@diningout.com
+  - msuttonv@diningout.com
 
 # SMTP settings (if email_method = smtp)
 smtp_host: smtp.gmail.com
